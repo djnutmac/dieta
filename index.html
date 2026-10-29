@@ -4,28 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Barcelona Dashboard</title>
-    <!-- Leaflet CSS per la mappa -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Chart.js per i grafici -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-color: #0d1117;
-            --card-bg: #161b22;
-            --border-color: #30363d;
-            --text-primary: #c9d1d9;
-            --text-secondary: #8b949e;
-            --accent-blue: #58a6ff;
-            --accent-green: #3fb950;
-            --accent-red: #f85149;
-            --accent-purple: #bc8cff;
+            --bg-color: #0d1117; --card-bg: #161b22; --border-color: #30363d;
+            --text-primary: #c9d1d9; --text-secondary: #8b949e;
+            --accent-blue: #58a6ff; --accent-green: #3fb950;
+            --accent-red: #f85149; --accent-purple: #bc8cff;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            line-height: 1.5;
+            background-color: var(--bg-color); color: var(--text-primary); line-height: 1.5;
         }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
@@ -33,12 +24,8 @@
         header p { color: var(--text-secondary); font-size: 1.1rem; }
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
         .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
+            background-color: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 8px; padding: 20px; display: flex; flex-direction: column;
         }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .card-title { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
@@ -49,6 +36,8 @@
         .card-status.success { background-color: var(--accent-green); color: #fff; }
         #map-container { height: 400px; width: 100%; border-radius: 8px; margin-bottom: 20px; grid-column: 1 / -1; }
         #map { height: 100%; width: 100%; border-radius: 8px; }
+        /* Filtro CSS per rendere scura la mappa OpenStreetMap */
+        .leaflet-layer { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9); }
         .chart-container { position: relative; height: 250px; width: 100%; }
         .data-list { list-style: none; }
         .data-list li { padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
@@ -70,13 +59,12 @@
             <p>Mobilità, ambiente e servizi della città in un'unica vista</p>
         </header>
 
-        <!-- MAPPA PRINCIPALE -->
         <div id="map-container" class="card">
             <div id="map"></div>
         </div>
 
         <div class="dashboard-grid">
-            <!-- 1. BICING (STATO LIVE) -->
+            <!-- BICING LIVE -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><span class="icon">🚲</span>Bicing Live</div>
@@ -94,7 +82,7 @@
                 </ul>
             </div>
 
-            <!-- 2. BICING (ANAGRAFICA) -->
+            <!-- BICING ANAGRAFICA -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><span class="icon">ℹ️</span>Info Stazioni Bicing</div>
@@ -107,76 +95,61 @@
                 </ul>
             </div>
 
-            <!-- 3. RICARICA AUTO (ANAGRAFICA) -->
+            <!-- ALTRI DATASET (segnaposto) -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><span class="icon">🔌</span>Punti Ricarica Elettrica</div>
-                    <div class="card-status loading" id="status-recharge">Caricamento...</div>
+                    <div class="card-status" id="status-recharge">In attesa di ID</div>
                 </div>
-                <ul class="data-list" id="recharge-list">
-                    <li><span class="label">Punti totali:</span><span class="value">—</span></li>
-                    <li><span class="label">Potenza media:</span><span class="value">—</span></li>
-                </ul>
+                <ul class="data-list"><li><span class="label">Configura l'ID della risorsa</span></li></ul>
             </div>
 
-            <!-- 4. SENSORI METEO -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><span class="icon">🌡️</span>Meteo (Storico)</div>
-                    <div class="card-status loading" id="status-weather">Caricamento...</div>
+                    <div class="card-status" id="status-weather">In attesa di ID</div>
                 </div>
                 <div class="chart-container"><canvas id="weatherChart"></canvas></div>
             </div>
 
-            <!-- 5. INCIDENTI -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><span class="icon">🚨</span>Incidenti per Causa</div>
-                    <div class="card-status loading" id="status-accidents">Caricamento...</div>
+                    <div class="card-status" id="status-accidents">In attesa di ID</div>
                 </div>
                 <div class="chart-container"><canvas id="accidentsChart"></canvas></div>
             </div>
 
-            <!-- 6. VENUE E SPAZI CULTURALI -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><span class="icon">🎭</span>Luoghi Culturali</div>
-                    <div class="card-status loading" id="status-culture">Caricamento...</div>
+                    <div class="card-status" id="status-culture">In attesa di ID</div>
                 </div>
-                <ul class="data-list" id="culture-list">
-                    <li><span class="label">Luoghi totali:</span><span class="value">—</span></li>
-                </ul>
+                <ul class="data-list"><li><span class="label">Configura l'ID della risorsa</span></li></ul>
             </div>
 
-            <!-- 7. TELECAMERE DI SICUREZZA -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><span class="icon">📹</span>Telecamere Sicurezza</div>
-                    <div class="card-status loading" id="status-cameras">Caricamento...</div>
+                    <div class="card-status" id="status-cameras">In attesa di ID</div>
                 </div>
-                <ul class="data-list" id="cameras-list">
-                    <li><span class="label">Telecamere censite:</span><span class="value">—</span></li>
-                </ul>
+                <ul class="data-list"><li><span class="label">Configura l'ID della risorsa</span></li></ul>
             </div>
 
-            <!-- 8. CONSUMO ELETTRICO -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><span class="icon">⚡</span>Consumo Elettrico</div>
-                    <div class="card-status loading" id="status-energy">Caricamento...</div>
+                    <div class="card-status" id="status-energy">In attesa di ID</div>
                 </div>
                 <div class="chart-container"><canvas id="energyChart"></canvas></div>
             </div>
 
-            <!-- 9. NOMENCLATORE -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title"><span class="icon">📇</span>Nomenclatore Città</div>
-                    <div class="card-status loading" id="status-nomenclator">Caricamento...</div>
+                    <div class="card-status" id="status-nomenclator">In attesa di ID</div>
                 </div>
-                <ul class="data-list" id="nomenclator-list">
-                    <li><span class="label">Vie censite:</span><span class="value">—</span></li>
-                </ul>
+                <ul class="data-list"><li><span class="label">Configura l'ID della risorsa</span></li></ul>
             </div>
         </div>
 
@@ -185,98 +158,75 @@
         </footer>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ===================================================================
-        // CONFIGURAZIONE
-        // ===================================================================
         const CONFIG = {
-            // Endpoint GBFS per il Bicing (dati live)
             bicing: {
-                info: 'https://api.bsmsa.eu/ext/api/bsm/gbfs/v2/en/station_information',
-                status: 'https://api.bsmsa.eu/ext/api/bsm/gbfs/v2/en/station_status'
+                // Endpoint ufficiali GBFS (v1) di Bicing Barcelona
+                info: 'https://barcelona.publicbikesystem.net/customer/ube/gbfs/v1/en/station_information',
+                status: 'https://barcelona.publicbikesystem.net/customer/ube/gbfs/v1/en/station_status'
             },
-            // Endpoint CKAN per Open Data BCN
             ckan: {
                 base: 'https://opendata-ajuntament.barcelona.cat/data/api/action/datastore_search',
-                // Sostituisci questi ID con quelli delle risorse che vuoi visualizzare.
-                // Puoi trovarli aprendo un dataset e cliccando sulla risorsa.
                 resourceIds: {
-                    // Esempi: sostituisci con gli ID reali
-                    accidents: 'YOUR_ACCIDENTS_RESOURCE_ID',
-                    culture: 'YOUR_CULTURE_RESOURCE_ID',
-                    recharge: 'YOUR_RECHARGE_RESOURCE_ID',
-                    weather: 'YOUR_WEATHER_RESOURCE_ID',
-                    cameras: 'YOUR_CAMERAS_RESOURCE_ID',
-                    energy: 'YOUR_ENERGY_RESOURCE_ID',
-                    nomenclator: 'YOUR_NOMENCLATOR_RESOURCE_ID'
+                    // ID parziali trovati. Per gli altri, vedi istruzioni sotto.
+                    accidents: '', // Es. 'eb701b03-6681-4143-99f4-84acbc57bd0a' (verifica)
+                    culture: '',
+                    recharge: '',
+                    weather: '',
+                    cameras: '',
+                    energy: 'f817d810-c0d8-4562-8a7d-746db04755c4',
+                    nomenclator: ''
                 }
             }
         };
 
-        // ===================================================================
-        // STATO GLOBALE
-        // ===================================================================
         let map;
         let bicingMarkersLayer;
         const charts = {};
 
-        // ===================================================================
-        // INIZIALIZZAZIONE MAPPA
-        // ===================================================================
         function initMap() {
-            map = L.map('map').setView([41.3874, 2.1686], 13); // Centro di Barcellona
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                subdomains: 'abcd',
-                maxZoom: 20
+            map = L.map('map').setView([41.3874, 2.1686], 13);
+            // Tile OpenStreetMap standard (gratuite, senza chiave)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
             }).addTo(map);
             bicingMarkersLayer = L.layerGroup().addTo(map);
         }
 
-        // ===================================================================
-        // UTILITY
-        // ===================================================================
         function setStatus(id, status, text) {
             const el = document.getElementById(id);
-            if (el) {
-                el.textContent = text;
-                el.className = `card-status ${status}`;
-            }
+            if (el) { el.textContent = text; el.className = `card-status ${status}`; }
         }
 
-        // Funzione per chiamate JSONP (necessaria per CKAN su GitHub Pages)
+        // Proxy CORS più affidabile
+        async function fetchWithProxy(url) {
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            const response = await fetch(proxyUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        }
+
+        // JSONP per CKAN (se supportato)
         function fetchJSONP(url, callback) {
-            const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+            const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
             window[callbackName] = function(data) {
                 delete window[callbackName];
-                document.body.removeChild(script);
+                if (script.parentNode) script.parentNode.removeChild(script);
                 callback(null, data);
             };
             const script = document.createElement('script');
             script.src = `${url}&callback=${callbackName}`;
             script.onerror = function() {
                 delete window[callbackName];
-                document.body.removeChild(script);
-                callback(new Error('JSONP request failed'));
+                if (script.parentNode) script.parentNode.removeChild(script);
+                callback(new Error('JSONP failed'));
             };
             document.body.appendChild(script);
         }
 
-        // Funzione per chiamate fetch con proxy CORS (per GBFS Bicing)
-        async function fetchWithProxy(url) {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.json();
-        }
-
-        // ===================================================================
-        // LOGICA PER I DATI
-        // ===================================================================
-
-        // --- BICING LIVE ---
+        // --- BICING ---
         async function loadBicingLive() {
             setStatus('status-bicing', 'loading', 'Caricamento...');
             try {
@@ -284,55 +234,41 @@
                     fetchWithProxy(CONFIG.bicing.info),
                     fetchWithProxy(CONFIG.bicing.status)
                 ]);
-
+                // La struttura GBFS v1 ha data.stations
                 const stationsInfo = infoData.data.stations;
                 const stationsStatus = statusData.data.stations;
                 const statusMap = new Map(stationsStatus.map(s => [s.station_id, s]));
 
                 bicingMarkersLayer.clearLayers();
-                let totalBikes = 0;
-                let totalDocks = 0;
+                let totalBikes = 0, totalDocks = 0;
 
                 stationsInfo.forEach(info => {
                     const status = statusMap.get(info.station_id);
                     if (!status) return;
-
                     const bikes = status.num_bikes_available;
                     const docks = status.num_docks_available;
-                    totalBikes += bikes;
-                    totalDocks += docks;
+                    totalBikes += bikes; totalDocks += docks;
 
-                    let color = '#8b949e'; // Grigio (vuota)
-                    if (bikes > 0 && docks > 0) color = '#3fb950'; // Verde
-                    else if (bikes === 0) color = '#f85149'; // Rosso
+                    let color = '#8b949e';
+                    if (bikes > 0 && docks > 0) color = '#3fb950';
+                    else if (bikes === 0) color = '#f85149';
 
-                    const marker = L.circleMarker([info.lat, info.lon], {
-                        radius: 5,
-                        fillColor: color,
-                        color: '#fff',
-                        weight: 1,
-                        opacity: 1,
-                        fillOpacity: 0.8
-                    }).bindPopup(`
-                        <b>${info.name}</b><br>
-                        Bici: ${bikes}<br>
-                        Stalli: ${docks}
-                    `);
-                    bicingMarkersLayer.addLayer(marker);
+                    L.circleMarker([info.lat, info.lon], {
+                        radius: 5, fillColor: color, color: '#fff', weight: 1, fillOpacity: 0.8
+                    }).bindPopup(`<b>${info.name}</b><br>Bici: ${bikes}<br>Stalli: ${docks}`)
+                      .addTo(bicingMarkersLayer);
                 });
 
                 document.querySelector('#bicing-summary .value:nth-child(2)').textContent = stationsInfo.length;
                 document.querySelector('#bicing-summary .value:nth-child(4)').textContent = totalBikes;
                 document.querySelector('#bicing-summary .value:nth-child(6)').textContent = totalDocks;
-
                 setStatus('status-bicing', 'success', 'Live');
             } catch (error) {
-                console.error('Errore Bicing Live:', error);
-                setStatus('status-bicing', 'error', 'Errore');
+                console.error('Bicing Live:', error);
+                setStatus('status-bicing', 'error', 'Errore di rete');
             }
         }
 
-        // --- BICING ANAGRAFICA ---
         async function loadBicingInfo() {
             setStatus('status-bicing-info', 'loading', 'Caricamento...');
             try {
@@ -340,197 +276,65 @@
                 const stations = data.data.stations;
                 const mechanical = stations.filter(s => s.is_mechanical).length;
                 const electric = stations.filter(s => s.is_electrical).length;
-
                 document.querySelector('#bicing-info-list .value:nth-child(2)').textContent = stations.length;
                 document.querySelector('#bicing-info-list .value:nth-child(4)').textContent = mechanical;
                 document.querySelector('#bicing-info-list .value:nth-child(6)').textContent = electric;
-
                 setStatus('status-bicing-info', 'success', 'Dati caricati');
             } catch (error) {
-                console.error('Errore Bicing Info:', error);
                 setStatus('status-bicing-info', 'error', 'Errore');
             }
         }
 
-        // --- FUNZIONE GENERICA PER CKAN (JSONP) ---
+        // --- CKAN (solo per dataset con ID configurato) ---
         function loadCKANData(resourceId, statusId, callback) {
-            if (!resourceId || resourceId.startsWith('YOUR_')) {
+            if (!resourceId) {
                 setStatus(statusId, 'error', 'ID non configurato');
                 return;
             }
             setStatus(statusId, 'loading', 'Caricamento...');
             const url = `${CONFIG.ckan.base}?resource_id=${resourceId}&limit=100`;
             fetchJSONP(url, (err, data) => {
-                if (err) {
-                    console.error(`Errore CKAN (${resourceId}):`, err);
-                    setStatus(statusId, 'error', 'Errore');
+                if (err || !data || !data.success) {
+                    setStatus(statusId, 'error', 'Errore o ID errato');
                     return;
                 }
-                if (data && data.success) {
-                    callback(data.result);
-                    setStatus(statusId, 'success', 'Dati caricati');
-                } else {
-                    setStatus(statusId, 'error', 'Dati non validi');
-                }
+                callback(data.result);
+                setStatus(statusId, 'success', 'Dati caricati');
             });
         }
 
-        // --- RICARICA AUTO ---
-        function processRechargeData(result) {
-            const records = result.records || [];
-            document.querySelector('#recharge-list .value:nth-child(2)').textContent = records.length;
-            // Calcola potenza media se il campo esiste
-            let totalPower = 0;
-            let count = 0;
-            records.forEach(r => {
-                const power = parseFloat(r.potencia || r.power || 0);
-                if (!isNaN(power) && power > 0) {
-                    totalPower += power;
-                    count++;
-                }
-            });
-            const avgPower = count > 0 ? (totalPower / count).toFixed(1) + ' kW' : 'N/D';
-            document.querySelector('#recharge-list .value:nth-child(4)').textContent = avgPower;
-        }
-
-        // --- METEO (GRAFICO) ---
-        function processWeatherData(result) {
-            const records = result.records || [];
-            const labels = records.slice(0, 10).map(r => r.data || r.date || 'N/D');
-            const temps = records.slice(0, 10).map(r => parseFloat(r.temperatura || r.temperature || 0));
-            
-            if (charts.weather) charts.weather.destroy();
-            const ctx = document.getElementById('weatherChart').getContext('2d');
-            charts.weather = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Temperatura (°C)',
-                        data: temps,
-                        borderColor: '#58a6ff',
-                        backgroundColor: 'rgba(88, 166, 255, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: false, grid: { color: '#30363d' } }, x: { grid: { display: false } } }
-                }
-            });
-        }
-
-        // --- INCIDENTI (GRAFICO) ---
-        function processAccidentsData(result) {
-            const records = result.records || [];
-            const causeCount = {};
-            records.forEach(r => {
-                const cause = r.causa || r.cause || 'Altro';
-                causeCount[cause] = (causeCount[cause] || 0) + 1;
-            });
-            const sorted = Object.entries(causeCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            const labels = sorted.map(item => item[0]);
-            const data = sorted.map(item => item[1]);
-
-            if (charts.accidents) charts.accidents.destroy();
-            const ctx = document.getElementById('accidentsChart').getContext('2d');
-            charts.accidents = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Numero incidenti',
-                        data: data,
-                        backgroundColor: ['#f85149', '#d29922', '#58a6ff', '#bc8cff', '#3fb950'],
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, grid: { color: '#30363d' } }, x: { grid: { display: false } } }
-                }
-            });
-        }
-
-        // --- CULTURA ---
-        function processCultureData(result) {
-            const records = result.records || [];
-            document.querySelector('#culture-list .value').textContent = records.length;
-        }
-
-        // --- TELECAMERE ---
-        function processCamerasData(result) {
-            const records = result.records || [];
-            document.querySelector('#cameras-list .value').textContent = records.length;
-        }
-
-        // --- CONSUMO ELETTRICO (GRAFICO) ---
         function processEnergyData(result) {
             const records = result.records || [];
             const sectorData = {};
             records.forEach(r => {
                 const sector = r.sector || r.tipus || 'Altro';
                 const consumption = parseFloat(r.consum || r.consumption || 0);
-                if (!isNaN(consumption)) {
-                    sectorData[sector] = (sectorData[sector] || 0) + consumption;
-                }
+                if (!isNaN(consumption)) sectorData[sector] = (sectorData[sector] || 0) + consumption;
             });
             const sorted = Object.entries(sectorData).sort((a, b) => b[1] - a[1]).slice(0, 6);
-            const labels = sorted.map(item => item[0]);
-            const data = sorted.map(item => item[1]);
-
             if (charts.energy) charts.energy.destroy();
             const ctx = document.getElementById('energyChart').getContext('2d');
             charts.energy = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: ['#58a6ff', '#3fb950', '#d29922', '#f85149', '#bc8cff', '#8b949e'],
-                        borderColor: '#161b22',
-                        borderWidth: 2
-                    }]
+                    labels: sorted.map(i => i[0]),
+                    datasets: [{ data: sorted.map(i => i[1]), backgroundColor: ['#58a6ff', '#3fb950', '#d29922', '#f85149', '#bc8cff', '#8b949e'], borderColor: '#161b22', borderWidth: 2 }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'right', labels: { color: '#c9d1d9', font: { size: 10 } } } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#c9d1d9', font: { size: 10 } } } } }
             });
         }
 
-        // --- NOMENCLATORE ---
-        function processNomenclatorData(result) {
-            const records = result.records || [];
-            document.querySelector('#nomenclator-list .value').textContent = records.length;
-        }
-
-        // ===================================================================
-        // AVVIO
-        // ===================================================================
+        // --- AVVIO ---
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
-
-            // Carica dati Bicing (live e anagrafica)
             loadBicingLive();
             loadBicingInfo();
 
-            // Carica dati da CKAN (usando JSONP)
-            loadCKANData(CONFIG.ckan.resourceIds.accidents, 'status-accidents', processAccidentsData);
-            loadCKANData(CONFIG.ckan.resourceIds.culture, 'status-culture', processCultureData);
-            loadCKANData(CONFIG.ckan.resourceIds.recharge, 'status-recharge', processRechargeData);
-            loadCKANData(CONFIG.ckan.resourceIds.weather, 'status-weather', processWeatherData);
-            loadCKANData(CONFIG.ckan.resourceIds.cameras, 'status-cameras', processCamerasData);
-            loadCKANData(CONFIG.ckan.resourceIds.energy, 'status-energy', processEnergyData);
-            loadCKANData(CONFIG.ckan.resourceIds.nomenclator, 'status-nomenclator', processNomenclatorData);
+            // Carica solo i dataset con ID noto
+            if (CONFIG.ckan.resourceIds.energy) {
+                loadCKANData(CONFIG.ckan.resourceIds.energy, 'status-energy', processEnergyData);
+            }
 
-            // Aggiorna i dati del Bicing ogni 60 secondi
             setInterval(loadBicingLive, 60000);
         });
     </script>
