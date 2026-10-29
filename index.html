@@ -7,22 +7,17 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --panel-bg: rgba(22, 27, 34, 0.9); /* Pannello scuro */
+            --panel-bg: rgba(22, 27, 34, 0.9);
             --border: #30363d;
             --text: #c9d1d9;
             --green: #3fb950;
             --red: #f85149;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-            overflow: hidden; 
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; overflow: hidden; }
         
-        /* Mappa a schermo intero - nessun filtro, colori naturali */
         #map { height: 100vh; width: 100vw; }
 
-        /* Pannello fluttuante in alto a sinistra */
         .panel {
             position: absolute; top: 20px; left: 20px; z-index: 1000;
             background: var(--panel-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -59,16 +54,51 @@
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Inizializza la mappa
-        const map = L.map('map', { zoomControl: false }).setView([1.3521, 103.8198], 12);
+        // ==========================================
+        // 1. RECUPERO DELLO STATO SALVATO (LocalStorage)
+        // ==========================================
+        const defaultCenter = [1.3521, 103.8198];
+        const defaultZoom = 12;
+
+        // Cerchiamo se c'è una posizione salvata nel browser
+        const savedCenterStr = localStorage.getItem('sg_taxi_center');
+        const savedZoomStr = localStorage.getItem('sg_taxi_zoom');
+
+        // Se esiste la usiamo, altrimenti usiamo i valori di default
+        const initialCenter = savedCenterStr ? JSON.parse(savedCenterStr) : defaultCenter;
+        const initialZoom = savedZoomStr ? parseInt(savedZoomStr, 10) : defaultZoom;
+
+        // ==========================================
+        // 2. INIZIALIZZAZIONE MAPPA
+        // ==========================================
+        const map = L.map('map', { zoomControl: false }).setView(initialCenter, initialZoom);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
         
-        // Tile standard OpenStreetMap (chiare)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', 
             maxZoom: 19 
         }).addTo(map);
         
+        // ==========================================
+        // 3. SALVATAGGIO DELLO STATO
+        // ==========================================
+        // Questa funzione viene chiamata ogni volta che l'utente sposta o zooma la mappa
+        function saveMapState() {
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            
+            // Salviamo le coordinate come stringa JSON
+            localStorage.setItem('sg_taxi_center', JSON.stringify([center.lat, center.lng]));
+            localStorage.setItem('sg_taxi_zoom', zoom);
+        }
+
+        // Agganciamo la funzione agli eventi della mappa
+        map.on('moveend', saveMapState);
+        map.on('zoomend', saveMapState);
+
+        // ==========================================
+        // 4. CARICAMENTO DEI TAXI
+        // ==========================================
         const taxiLayer = L.layerGroup().addTo(map);
 
         async function loadTaxis() {
@@ -88,14 +118,12 @@
                 
                 const coordinates = data.features[0].geometry.coordinates;
                 
-                // Pulisce i vecchi marker
                 taxiLayer.clearLayers();
                 
-                // Aggiunge i nuovi marker
                 coordinates.forEach(coord => {
                     L.circleMarker([coord[1], coord[0]], {
                         radius: 5, 
-                        fillColor: '#0055ff', // Blu più scuro per risaltare sulla mappa chiara
+                        fillColor: '#0055ff',
                         color: '#ffffff', 
                         weight: 1.5, 
                         opacity: 1, 
@@ -103,7 +131,6 @@
                     }).addTo(taxiLayer);
                 });
                 
-                // Aggiorna l'interfaccia
                 statusEl.textContent = "LIVE";
                 statusEl.style.color = "var(--green)";
                 countEl.textContent = coordinates.length.toLocaleString('it-IT');
@@ -116,7 +143,7 @@
             }
         }
         
-        // Avvio e aggiornamento automatico ogni 30 secondi
+        // Avvio e aggiornamento automatico
         loadTaxis();
         setInterval(loadTaxis, 30000);
     </script>
