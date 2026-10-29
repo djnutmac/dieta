@@ -4,181 +4,119 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Singapore Taxi Live</title>
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
-            --bg: #0d1117;
-            --panel-bg: rgba(22, 27, 34, 0.85);
+            --panel-bg: rgba(22, 27, 34, 0.9); /* Pannello scuro */
             --border: #30363d;
             --text: #c9d1d9;
-            --accent: #58a6ff;
             --green: #3fb950;
+            --red: #f85149;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            overflow: hidden; /* La mappa occupa tutto */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+            overflow: hidden; 
         }
-
-        /* Mappa a schermo intero */
-        #map { height: 100vh; width: 100vw; }
         
-        /* Filtro per rendere la mappa OpenStreetMap scura */
-        .leaflet-layer { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9); }
+        /* Mappa a schermo intero - nessun filtro, colori naturali */
+        #map { height: 100vh; width: 100vw; }
 
         /* Pannello fluttuante in alto a sinistra */
         .panel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            background: var(--panel-bg);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-            min-width: 250px;
+            position: absolute; top: 20px; left: 20px; z-index: 1000;
+            background: var(--panel-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3); min-width: 250px;
+            color: var(--text);
         }
-        .panel h1 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .panel h1 { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         .panel h1 .icon { font-size: 1.3rem; }
-        .stat-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            padding: 6px 0;
-            border-bottom: 1px solid var(--border);
-        }
+        
+        .stat-row { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 6px 0; border-bottom: 1px solid var(--border); }
         .stat-row:last-child { border-bottom: none; padding-bottom: 0; }
         .stat-label { color: #8b949e; }
         .stat-value { font-weight: 600; color: var(--text); }
-
-        /* Indicatore Live */
-        .live-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: var(--green);
-            margin-right: 6px;
-            box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7);
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(63, 185, 80, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
-        }
-
-        /* Adattamento per schermi piccoli */
-        @media (max-width: 600px) {
-            .panel { top: 10px; left: 10px; right: 10px; min-width: auto; padding: 12px; }
-            .stat-row { font-size: 0.85rem; }
+        
+        .live-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--green); margin-right: 6px; box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(63, 185, 80, 0); } 100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); } }
+        
+        @media (max-width: 600px) { 
+            .panel { top: 10px; left: 10px; right: 10px; min-width: auto; padding: 12px; } 
+            .stat-row { font-size: 0.85rem; } 
         }
     </style>
 </head>
 <body>
-
-    <!-- Pannello di controllo -->
     <div class="panel">
         <h1><span class="icon">🚖</span> Singapore Taxi Live</h1>
-        <div class="stat-row">
-            <span class="stat-label"><span class="live-indicator"></span>Stato</span>
-            <span class="stat-value" id="status">Caricamento...</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Taxi attivi</span>
-            <span class="stat-value" id="taxi-count">—</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Ultimo agg.</span>
-            <span class="stat-value" id="last-update">—</span>
-        </div>
+        <div class="stat-row"><span class="stat-label"><span class="live-indicator"></span>Stato</span><span class="stat-value" id="status">Caricamento...</span></div>
+        <div class="stat-row"><span class="stat-label">Taxi attivi</span><span class="stat-value" id="taxi-count">—</span></div>
+        <div class="stat-row"><span class="stat-label">Ultimo agg.</span><span class="stat-value" id="last-update">—</span></div>
     </div>
-
-    <!-- Mappa -->
+    
     <div id="map"></div>
-
-    <!-- Leaflet JS -->
+    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. Inizializza la mappa su Singapore
+        // Inizializza la mappa
         const map = L.map('map', { zoomControl: false }).setView([1.3521, 103.8198], 12);
-        
-        // Aggiunge i controlli di zoom in basso a destra
         L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-        // Tile OpenStreetMap (gratuite, senza chiave)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            maxZoom: 19
+        
+        // Tile standard OpenStreetMap (chiare)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', 
+            maxZoom: 19 
         }).addTo(map);
-
-        // Layer per raggruppare i taxi e poterli cancellare facilmente
+        
         const taxiLayer = L.layerGroup().addTo(map);
 
-        // 2. Funzione per caricare e mostrare i taxi
         async function loadTaxis() {
             const statusEl = document.getElementById('status');
             const countEl = document.getElementById('taxi-count');
             const updateEl = document.getElementById('last-update');
-
+            
             statusEl.textContent = "Aggiornamento...";
+            statusEl.style.color = "var(--text)";
 
-            // Usiamo un proxy CORS per garantire il funzionamento su GitHub Pages
-            const targetUrl = 'https://api.data.gov.sg/v1/transport/taxi-availability';
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-
+            const apiUrl = 'https://api.data.gov.sg/v1/transport/taxi-availability';
+            
             try {
-                const response = await fetch(proxyUrl);
+                const response = await fetch(apiUrl);
                 if (!response.ok) throw new Error("Errore di rete");
                 const data = await response.json();
-
-                // Estrae le coordinate: sono in formato [lng, lat]
+                
                 const coordinates = data.features[0].geometry.coordinates;
-
+                
                 // Pulisce i vecchi marker
                 taxiLayer.clearLayers();
-
+                
                 // Aggiunge i nuovi marker
                 coordinates.forEach(coord => {
                     L.circleMarker([coord[1], coord[0]], {
-                        radius: 4,
-                        fillColor: '#58a6ff',
-                        color: '#ffffff',
-                        weight: 1,
-                        opacity: 0.8,
+                        radius: 5, 
+                        fillColor: '#0055ff', // Blu più scuro per risaltare sulla mappa chiara
+                        color: '#ffffff', 
+                        weight: 1.5, 
+                        opacity: 1, 
                         fillOpacity: 0.9
                     }).addTo(taxiLayer);
                 });
-
+                
                 // Aggiorna l'interfaccia
                 statusEl.textContent = "LIVE";
                 statusEl.style.color = "var(--green)";
                 countEl.textContent = coordinates.length.toLocaleString('it-IT');
+                updateEl.textContent = new Date().toLocaleTimeString('it-IT');
                 
-                const now = new Date();
-                updateEl.textContent = now.toLocaleTimeString('it-IT');
-
             } catch (error) {
                 console.error("Errore:", error);
                 statusEl.textContent = "Errore di rete";
-                statusEl.style.color = "#f85149";
+                statusEl.style.color = "var(--red)";
             }
         }
-
-        // 3. Avvia il caricamento e imposta l'aggiornamento ogni 30 secondi
+        
+        // Avvio e aggiornamento automatico ogni 30 secondi
         loadTaxis();
         setInterval(loadTaxis, 30000);
     </script>
