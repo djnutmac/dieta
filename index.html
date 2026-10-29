@@ -3,340 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Barcelona Dashboard</title>
+    <title>Singapore Taxi Live</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-color: #0d1117; --card-bg: #161b22; --border-color: #30363d;
-            --text-primary: #c9d1d9; --text-secondary: #8b949e;
-            --accent-blue: #58a6ff; --accent-green: #3fb950;
-            --accent-red: #f85149; --accent-purple: #bc8cff;
+            --bg: #0d1117;
+            --panel-bg: rgba(22, 27, 34, 0.85);
+            --border: #30363d;
+            --text: #c9d1d9;
+            --accent: #58a6ff;
+            --green: #3fb950;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color); color: var(--text-primary); line-height: 1.5;
+            background-color: var(--bg);
+            color: var(--text);
+            overflow: hidden; /* La mappa occupa tutto */
         }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-        header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
-        header h1 { font-size: 2.5rem; color: var(--accent-blue); margin-bottom: 10px; }
-        header p { color: var(--text-secondary); font-size: 1.1rem; }
-        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
-        .card {
-            background-color: var(--card-bg); border: 1px solid var(--border-color);
-            border-radius: 8px; padding: 20px; display: flex; flex-direction: column;
-        }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .card-title { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-        .card-title .icon { font-size: 1.3rem; }
-        .card-status { font-size: 0.8rem; padding: 4px 8px; border-radius: 12px; background-color: var(--border-color); color: var(--text-secondary); }
-        .card-status.loading { background-color: var(--accent-blue); color: #fff; }
-        .card-status.error { background-color: var(--accent-red); color: #fff; }
-        .card-status.success { background-color: var(--accent-green); color: #fff; }
-        #map-container { height: 400px; width: 100%; border-radius: 8px; margin-bottom: 20px; grid-column: 1 / -1; }
-        #map { height: 100%; width: 100%; border-radius: 8px; }
-        /* Filtro CSS per rendere scura la mappa OpenStreetMap */
+
+        /* Mappa a schermo intero */
+        #map { height: 100vh; width: 100vw; }
+        
+        /* Filtro per rendere la mappa OpenStreetMap scura */
         .leaflet-layer { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9); }
-        .chart-container { position: relative; height: 250px; width: 100%; }
-        .data-list { list-style: none; }
-        .data-list li { padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
-        .data-list li:last-child { border-bottom: none; }
-        .data-list .label { color: var(--text-secondary); }
-        .data-list .value { float: right; font-weight: 600; }
-        .bicing-legend { display: flex; gap: 15px; margin-bottom: 10px; font-size: 0.85rem; }
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
-        footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-secondary); }
-        footer a { color: var(--accent-blue); text-decoration: none; }
-        @media (max-width: 600px) { .dashboard-grid { grid-template-columns: 1fr; } header h1 { font-size: 1.8rem; } }
+
+        /* Pannello fluttuante in alto a sinistra */
+        .panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            min-width: 250px;
+        }
+        .panel h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel h1 .icon { font-size: 1.3rem; }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .stat-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .stat-label { color: #8b949e; }
+        .stat-value { font-weight: 600; color: var(--text); }
+
+        /* Indicatore Live */
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--green);
+            margin-right: 6px;
+            box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(63, 185, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
+        }
+
+        /* Adattamento per schermi piccoli */
+        @media (max-width: 600px) {
+            .panel { top: 10px; left: 10px; right: 10px; min-width: auto; padding: 12px; }
+            .stat-row { font-size: 0.85rem; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Barcelona Dashboard</h1>
-            <p>Mobilità, ambiente e servizi della città in un'unica vista</p>
-        </header>
 
-        <div id="map-container" class="card">
-            <div id="map"></div>
+    <!-- Pannello di controllo -->
+    <div class="panel">
+        <h1><span class="icon">🚖</span> Singapore Taxi Live</h1>
+        <div class="stat-row">
+            <span class="stat-label"><span class="live-indicator"></span>Stato</span>
+            <span class="stat-value" id="status">Caricamento...</span>
         </div>
-
-        <div class="dashboard-grid">
-            <!-- BICING LIVE -->
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">🚲</span>Bicing Live</div>
-                    <div class="card-status loading" id="status-bicing">Caricamento...</div>
-                </div>
-                <div class="bicing-legend">
-                    <div class="legend-item"><span class="legend-dot" style="background:#3fb950;"></span>Disponibili</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#f85149;"></span>Piene</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#8b949e;"></span>Vuote</div>
-                </div>
-                <ul class="data-list" id="bicing-summary">
-                    <li><span class="label">Stazioni totali:</span><span class="value">—</span></li>
-                    <li><span class="label">Bici disponibili:</span><span class="value">—</span></li>
-                    <li><span class="label">Stalli liberi:</span><span class="value">—</span></li>
-                </ul>
-            </div>
-
-            <!-- BICING ANAGRAFICA -->
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">ℹ️</span>Info Stazioni Bicing</div>
-                    <div class="card-status loading" id="status-bicing-info">Caricamento...</div>
-                </div>
-                <ul class="data-list" id="bicing-info-list">
-                    <li><span class="label">Stazioni mappate:</span><span class="value">—</span></li>
-                    <li><span class="label">Tipo meccanico:</span><span class="value">—</span></li>
-                    <li><span class="label">Tipo elettrico:</span><span class="value">—</span></li>
-                </ul>
-            </div>
-
-            <!-- ALTRI DATASET (segnaposto) -->
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">🔌</span>Punti Ricarica Elettrica</div>
-                    <div class="card-status" id="status-recharge">In attesa di ID</div>
-                </div>
-                <ul class="data-list"><li><span class="label">Configura l'ID della risorsa</span></li></ul>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">🌡️</span>Meteo (Storico)</div>
-                    <div class="card-status" id="status-weather">In attesa di ID</div>
-                </div>
-                <div class="chart-container"><canvas id="weatherChart"></canvas></div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">🚨</span>Incidenti per Causa</div>
-                    <div class="card-status" id="status-accidents">In attesa di ID</div>
-                </div>
-                <div class="chart-container"><canvas id="accidentsChart"></canvas></div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">🎭</span>Luoghi Culturali</div>
-                    <div class="card-status" id="status-culture">In attesa di ID</div>
-                </div>
-                <ul class="data-list"><li><span class="label">Configura l'ID della risorsa</span></li></ul>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">📹</span>Telecamere Sicurezza</div>
-                    <div class="card-status" id="status-cameras">In attesa di ID</div>
-                </div>
-                <ul class="data-list"><li><span class="label">Configura l'ID della risorsa</span></li></ul>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">⚡</span>Consumo Elettrico</div>
-                    <div class="card-status" id="status-energy">In attesa di ID</div>
-                </div>
-                <div class="chart-container"><canvas id="energyChart"></canvas></div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">📇</span>Nomenclatore Città</div>
-                    <div class="card-status" id="status-nomenclator">In attesa di ID</div>
-                </div>
-                <ul class="data-list"><li><span class="label">Configura l'ID della risorsa</span></li></ul>
-            </div>
+        <div class="stat-row">
+            <span class="stat-label">Taxi attivi</span>
+            <span class="stat-value" id="taxi-count">—</span>
         </div>
-
-        <footer>
-            <p>Dati da <a href="https://opendata-ajuntament.barcelona.cat/" target="_blank">Open Data BCN</a> e <a href="https://www.bicing.barcelona/" target="_blank">Bicing</a>.</p>
-        </footer>
+        <div class="stat-row">
+            <span class="stat-label">Ultimo agg.</span>
+            <span class="stat-value" id="last-update">—</span>
+        </div>
     </div>
 
+    <!-- Mappa -->
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const CONFIG = {
-            bicing: {
-                // Endpoint ufficiali GBFS (v1) di Bicing Barcelona
-                info: 'https://barcelona.publicbikesystem.net/customer/ube/gbfs/v1/en/station_information',
-                status: 'https://barcelona.publicbikesystem.net/customer/ube/gbfs/v1/en/station_status'
-            },
-            ckan: {
-                base: 'https://opendata-ajuntament.barcelona.cat/data/api/action/datastore_search',
-                resourceIds: {
-                    // ID parziali trovati. Per gli altri, vedi istruzioni sotto.
-                    accidents: '', // Es. 'eb701b03-6681-4143-99f4-84acbc57bd0a' (verifica)
-                    culture: '',
-                    recharge: '',
-                    weather: '',
-                    cameras: '',
-                    energy: 'f817d810-c0d8-4562-8a7d-746db04755c4',
-                    nomenclator: ''
-                }
-            }
-        };
+        // 1. Inizializza la mappa su Singapore
+        const map = L.map('map', { zoomControl: false }).setView([1.3521, 103.8198], 12);
+        
+        // Aggiunge i controlli di zoom in basso a destra
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        let map;
-        let bicingMarkersLayer;
-        const charts = {};
+        // Tile OpenStreetMap (gratuite, senza chiave)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19
+        }).addTo(map);
 
-        function initMap() {
-            map = L.map('map').setView([41.3874, 2.1686], 13);
-            // Tile OpenStreetMap standard (gratuite, senza chiave)
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
-            }).addTo(map);
-            bicingMarkersLayer = L.layerGroup().addTo(map);
-        }
+        // Layer per raggruppare i taxi e poterli cancellare facilmente
+        const taxiLayer = L.layerGroup().addTo(map);
 
-        function setStatus(id, status, text) {
-            const el = document.getElementById(id);
-            if (el) { el.textContent = text; el.className = `card-status ${status}`; }
-        }
+        // 2. Funzione per caricare e mostrare i taxi
+        async function loadTaxis() {
+            const statusEl = document.getElementById('status');
+            const countEl = document.getElementById('taxi-count');
+            const updateEl = document.getElementById('last-update');
 
-        // Proxy CORS più affidabile
-        async function fetchWithProxy(url) {
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return response.json();
-        }
+            statusEl.textContent = "Aggiornamento...";
 
-        // JSONP per CKAN (se supportato)
-        function fetchJSONP(url, callback) {
-            const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
-            window[callbackName] = function(data) {
-                delete window[callbackName];
-                if (script.parentNode) script.parentNode.removeChild(script);
-                callback(null, data);
-            };
-            const script = document.createElement('script');
-            script.src = `${url}&callback=${callbackName}`;
-            script.onerror = function() {
-                delete window[callbackName];
-                if (script.parentNode) script.parentNode.removeChild(script);
-                callback(new Error('JSONP failed'));
-            };
-            document.body.appendChild(script);
-        }
+            // Usiamo un proxy CORS per garantire il funzionamento su GitHub Pages
+            const targetUrl = 'https://api.data.gov.sg/v1/transport/taxi-availability';
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
-        // --- BICING ---
-        async function loadBicingLive() {
-            setStatus('status-bicing', 'loading', 'Caricamento...');
             try {
-                const [infoData, statusData] = await Promise.all([
-                    fetchWithProxy(CONFIG.bicing.info),
-                    fetchWithProxy(CONFIG.bicing.status)
-                ]);
-                // La struttura GBFS v1 ha data.stations
-                const stationsInfo = infoData.data.stations;
-                const stationsStatus = statusData.data.stations;
-                const statusMap = new Map(stationsStatus.map(s => [s.station_id, s]));
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error("Errore di rete");
+                const data = await response.json();
 
-                bicingMarkersLayer.clearLayers();
-                let totalBikes = 0, totalDocks = 0;
+                // Estrae le coordinate: sono in formato [lng, lat]
+                const coordinates = data.features[0].geometry.coordinates;
 
-                stationsInfo.forEach(info => {
-                    const status = statusMap.get(info.station_id);
-                    if (!status) return;
-                    const bikes = status.num_bikes_available;
-                    const docks = status.num_docks_available;
-                    totalBikes += bikes; totalDocks += docks;
+                // Pulisce i vecchi marker
+                taxiLayer.clearLayers();
 
-                    let color = '#8b949e';
-                    if (bikes > 0 && docks > 0) color = '#3fb950';
-                    else if (bikes === 0) color = '#f85149';
-
-                    L.circleMarker([info.lat, info.lon], {
-                        radius: 5, fillColor: color, color: '#fff', weight: 1, fillOpacity: 0.8
-                    }).bindPopup(`<b>${info.name}</b><br>Bici: ${bikes}<br>Stalli: ${docks}`)
-                      .addTo(bicingMarkersLayer);
+                // Aggiunge i nuovi marker
+                coordinates.forEach(coord => {
+                    L.circleMarker([coord[1], coord[0]], {
+                        radius: 4,
+                        fillColor: '#58a6ff',
+                        color: '#ffffff',
+                        weight: 1,
+                        opacity: 0.8,
+                        fillOpacity: 0.9
+                    }).addTo(taxiLayer);
                 });
 
-                document.querySelector('#bicing-summary .value:nth-child(2)').textContent = stationsInfo.length;
-                document.querySelector('#bicing-summary .value:nth-child(4)').textContent = totalBikes;
-                document.querySelector('#bicing-summary .value:nth-child(6)').textContent = totalDocks;
-                setStatus('status-bicing', 'success', 'Live');
+                // Aggiorna l'interfaccia
+                statusEl.textContent = "LIVE";
+                statusEl.style.color = "var(--green)";
+                countEl.textContent = coordinates.length.toLocaleString('it-IT');
+                
+                const now = new Date();
+                updateEl.textContent = now.toLocaleTimeString('it-IT');
+
             } catch (error) {
-                console.error('Bicing Live:', error);
-                setStatus('status-bicing', 'error', 'Errore di rete');
+                console.error("Errore:", error);
+                statusEl.textContent = "Errore di rete";
+                statusEl.style.color = "#f85149";
             }
         }
 
-        async function loadBicingInfo() {
-            setStatus('status-bicing-info', 'loading', 'Caricamento...');
-            try {
-                const data = await fetchWithProxy(CONFIG.bicing.info);
-                const stations = data.data.stations;
-                const mechanical = stations.filter(s => s.is_mechanical).length;
-                const electric = stations.filter(s => s.is_electrical).length;
-                document.querySelector('#bicing-info-list .value:nth-child(2)').textContent = stations.length;
-                document.querySelector('#bicing-info-list .value:nth-child(4)').textContent = mechanical;
-                document.querySelector('#bicing-info-list .value:nth-child(6)').textContent = electric;
-                setStatus('status-bicing-info', 'success', 'Dati caricati');
-            } catch (error) {
-                setStatus('status-bicing-info', 'error', 'Errore');
-            }
-        }
-
-        // --- CKAN (solo per dataset con ID configurato) ---
-        function loadCKANData(resourceId, statusId, callback) {
-            if (!resourceId) {
-                setStatus(statusId, 'error', 'ID non configurato');
-                return;
-            }
-            setStatus(statusId, 'loading', 'Caricamento...');
-            const url = `${CONFIG.ckan.base}?resource_id=${resourceId}&limit=100`;
-            fetchJSONP(url, (err, data) => {
-                if (err || !data || !data.success) {
-                    setStatus(statusId, 'error', 'Errore o ID errato');
-                    return;
-                }
-                callback(data.result);
-                setStatus(statusId, 'success', 'Dati caricati');
-            });
-        }
-
-        function processEnergyData(result) {
-            const records = result.records || [];
-            const sectorData = {};
-            records.forEach(r => {
-                const sector = r.sector || r.tipus || 'Altro';
-                const consumption = parseFloat(r.consum || r.consumption || 0);
-                if (!isNaN(consumption)) sectorData[sector] = (sectorData[sector] || 0) + consumption;
-            });
-            const sorted = Object.entries(sectorData).sort((a, b) => b[1] - a[1]).slice(0, 6);
-            if (charts.energy) charts.energy.destroy();
-            const ctx = document.getElementById('energyChart').getContext('2d');
-            charts.energy = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: sorted.map(i => i[0]),
-                    datasets: [{ data: sorted.map(i => i[1]), backgroundColor: ['#58a6ff', '#3fb950', '#d29922', '#f85149', '#bc8cff', '#8b949e'], borderColor: '#161b22', borderWidth: 2 }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#c9d1d9', font: { size: 10 } } } } }
-            });
-        }
-
-        // --- AVVIO ---
-        document.addEventListener('DOMContentLoaded', () => {
-            initMap();
-            loadBicingLive();
-            loadBicingInfo();
-
-            // Carica solo i dataset con ID noto
-            if (CONFIG.ckan.resourceIds.energy) {
-                loadCKANData(CONFIG.ckan.resourceIds.energy, 'status-energy', processEnergyData);
-            }
-
-            setInterval(loadBicingLive, 60000);
-        });
+        // 3. Avvia il caricamento e imposta l'aggiornamento ogni 30 secondi
+        loadTaxis();
+        setInterval(loadTaxis, 30000);
     </script>
 </body>
 </html>
