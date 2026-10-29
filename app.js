@@ -15,14 +15,13 @@
   const lightbox = document.getElementById('lightbox');
   const lightboxImg = document.getElementById('lightbox-img');
   const lightboxCaption = document.getElementById('lightbox-caption');
-  const toast = document.getElementById('toast');
 
   // Stato
   let selectedDayId = null;
   let lightboxImages = [];
   let lightboxIndex = 0;
 
-  // Utility per creare elementi
+  // Utility per creare elementi (CORRETTA per gestire il dataset)
   function el(tag, attrs = {}, ...children) {
     const element = document.createElement(tag);
     for (const [key, value] of Object.entries(attrs)) {
@@ -32,6 +31,8 @@
         element.textContent = value;
       } else if (key === 'className') {
         element.className = value;
+      } else if (key === 'dataset') {
+        Object.assign(element.dataset, value); // <-- FIX PER I FILTRI
       } else if (key.startsWith('on') && typeof value === 'function') {
         element.addEventListener(key.substring(2).toLowerCase(), value);
       } else if (key === 'style' && typeof value === 'object') {
