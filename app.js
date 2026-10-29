@@ -21,7 +21,7 @@
   let lightboxImages = [];
   let lightboxIndex = 0;
 
-  // CACHE IN MEMORIA PER GLI OVERRIDE (evita problemi con localStorage)
+  // CACHE IN MEMORIA PER GLI OVERRIDE (evita problemi di lettura/scrittura con localStorage)
   let overridesState = {};
   try {
     const stored = localStorage.getItem('dieta_overrides_state');
@@ -382,7 +382,7 @@
             setOverride(overrideKey, { type: 'recipe', recipeId: alt.ricetta, title: alt.titolo });
           }
         }
-        setTimeout(renderMenu, 0);
+        setTimeout(renderMenu, 0); // Ritardo per evitare bug del browser durante il cambio
       });
 
       const footer = el('div', { className: 'slot-footer' },
@@ -774,4 +774,200 @@
       });
     }});
     
-    const groups = el('
+    const groups = el('div', { className: 'unita-groups' },
+      ...DIETA.unita.gruppi.map(g =>
+        el('div', { className: 'unita-group' },
+          el('h3', {}, g.nome),
+          el('div', { className: 'unita-list' },
+            ...g.voci.map(v =>
+              el('div', { className: 'unita-row' },
+                el('span', { className: 'unita-voce' }, v.voce),
+                el('span', { className: 'unita-valore' }, v.valore)
+              )
+            )
+          )
+        )
+      )
+    );
+    
+    app.append(searchInput, groups);
+  }
+
+  function renderRicettario() {
+    const categorie = ['Tutte', ...new Set(DIETA.ricettario.map(r => r.categoria))];
+    let activeCat = 'Tutte';
+    let searchQ = '';
+    
+    const searchInput = el('input', { type: 'text', className: 'search-input', placeholder: 'Cerca una ricetta...', oninput: (e) => {
+      searchQ = e.target.value.toLowerCase();
+      filterRicette();
+    }});
+    
+    const filterChips = el('div', { className: 'filter-chips' });
+    
+    categorie.forEach(cat => {
+      const chip = el('button', { className: 'chip' + (cat === activeCat ? ' active' : '') }, cat);
+      chip.addEventListener('click', () => {
+        activeCat = cat;
+        document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        filterRicette();
+      });
+      filterChips.appendChild(chip);
+    });
+    
+    const grid = el('div', { className: 'ricettario-grid' });
+    
+    DIETA.ricettario.forEach(r => {
+      grid.appendChild(el('div', { className: 'ricetta-card card', dataset: { categoria: r.categoria }, onclick: () => { window.location.hash = `#/ricettario/${r.id}`; } },
+        el('h3', {}, r.titolo),
+        el('span', { className: 'badge' }, r.categoria)
+      ));
+    });
+    
+    function filterRicette() {
+      document.querySelectorAll('.ricetta-card').forEach(card => {
+        const matchCat = activeCat === 'Tutte' || card.dataset.categoria === activeCat;
+        const matchSearch = card.querySelector('h3').textContent.toLowerCase().includes(searchQ);
+        card.style.display = (matchCat && matchSearch) ? '' : 'none';
+      });
+    }
+    
+    app.append(searchInput, filterChips, grid);
+  }
+
+  function renderRicettaDetail(id) {
+    const ricetta = DIETA.ricettario.find(r => r.id === id);
+    if (!ricetta) {
+      app.appendChild(el('p', { className: 'empty' }, 'Ricetta non trovata.'));
+      return;
+    }
+    
+    const detail = el('div', { className: 'ricetta-detail' },
+      el('h2', {}, ricetta.titolo),
+      el('span', { className: 'badge' }, ricetta.categoria),
+      el('h3', {}, 'Ingredienti'),
+      el('ul', { className: 'ingredienti-list' },
+        ...ricetta.ingredienti.map(i => el('li', {}, i))
+      ),
+      el('h3', {}, 'Preparazione'),
+      ...ricetta.preparazione.map(p => el('p', {}, p)),
+      el('button', { className: 'btn', style: { marginTop: '20px' }, onclick: () => window.print() }, 'Stampa ricetta')
+    );
+    
+    app.appendChild(detail);
+  }
+
+  function openRecipeModal(id) {
+    const ricetta = DIETA.ricettario.find(r => r.id === id);
+    if (!ricetta) return;
+    
+    modalContent.innerHTML = '';
+    modalContent.appendChild(el('button', { className: 'modal-close', onclick: closeModal }, '×'));
+    modalContent.appendChild(el('h2', {}, ricetta.titolo));
+    modalContent.appendChild(el('span', { className: 'badge', style: { marginBottom: '16px', display: 'inline-block' } }, ricetta.categoria));
+    modalContent.appendChild(el('h3', {}, 'Ingredienti'));
+    modalContent.appendChild(el('ul', {},
+      ...ricetta.ingredienti.map(i => el('li', {}, i))
+    ));
+    modalContent.appendChild(el('h3', {}, 'Preparazione'));
+    ricetta.preparazione.forEach(p => modalContent.appendChild(el('p', {}, p)));
+    
+    modal.hidden = false;
+    document.body.classList.add('modal-open');
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    document.body.classList.remove('modal-open');
+  }
+
+  function openLightbox(images, index) {
+    lightboxImages = images;
+    lightboxIndex = index;
+    updateLightbox();
+    lightbox.hidden = false;
+    document.body.classList.add('lightbox-open');
+  }
+
+  function updateLightbox() {
+    const img = lightboxImages[lightboxIndex];
+    if (!img) return;
+    lightboxImg.src = img.file;
+    lightboxImg.alt = img.didascalia || '';
+    lightboxCaption.textContent = img.didascalia || '';
+  }
+
+  function closeLightbox() {
+    lightbox.hidden = true;
+    document.body.classList.remove('lightbox-open');
+  }
+
+  window.addEventListener('hashchange', handleRoute);
+  
+  backBtn.addEventListener('click', () => {
+    window.history.back();
+  });
+
+  function initTheme() {
+    let theme = 'light';
+    try {
+      const saved = localStorage.getItem('dieta_theme');
+      if (saved) theme = saved;
+      else if (window.matchMedia('(prefers-color-scheme: dark)').matches) theme = 'dark';
+    } catch(e) {}
+    
+    document.documentElement.setAttribute('data-theme', theme);
+    themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+    
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      themeToggle.textContent = next === 'dark' ? '☀️' : '🌙';
+      try { localStorage.setItem('dieta_theme', next); } catch(e) {}
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!modal.hidden) closeModal();
+      if (!lightbox.hidden) closeLightbox();
+    }
+    if (!lightbox.hidden) {
+      if (e.key === 'ArrowLeft') {
+        lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+        updateLightbox();
+      } else if (e.key === 'ArrowRight') {
+        lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+        updateLightbox();
+      }
+    }
+  });
+
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+
+  lightbox.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
+  lightbox.querySelector('.lightbox-prev').addEventListener('click', () => {
+    lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+    updateLightbox();
+  });
+  lightbox.querySelector('.lightbox-next').addEventListener('click', () => {
+    lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+    updateLightbox();
+  });
+
+  function init() {
+    initTheme();
+    const nut = DIETA.meta.nutrizionista;
+    footerText.textContent = `Piano alimentare della ${nut.nome}, ${nut.qualifica} — ${nut.sito}. Uso personale: non sostituisce il parere del medico.`;
+    if (!window.location.hash) {
+      window.location.hash = '#/';
+    }
+    handleRoute();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+
+})();
