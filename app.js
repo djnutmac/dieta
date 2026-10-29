@@ -54,7 +54,7 @@
     return element;
   }
 
-  // Accorcia un testo lungo per le tendine
+  // Accorcia un testo lungo per le tendine (max caratteri)
   function accorcia(testo, max) {
     if (!testo) return '';
     if (testo.length <= max) return testo;
@@ -244,14 +244,38 @@
       try { override = JSON.parse(localStorage.getItem(overrideKey)); } catch(e) {}
 
       const card = el('div', { className: 'slot-card' });
+
+      // Header con nome slot e badge stato
+      let badgeText = null;
+      if (override) {
+        if (override.type === 'day') {
+          const g = DIETA.meta.giorni.find(x => x.id === override.dayId);
+          badgeText = g ? 'Da ' + g.nome : 'Modificato';
+        } else if (override.type === 'recipe') {
+          badgeText = 'Ricetta alternativa';
+        }
+      }
       const header = el('div', { className: 'slot-header' },
         el('span', { className: 'slot-icon' }, slot.icona),
         el('h3', { className: 'slot-name' }, slot.nome),
-        override ? el('span', { className: 'badge badge-mod' }, 'Modificato') : null
+        badgeText ? el('span', { className: 'badge badge-mod' }, badgeText) : null
       );
       card.appendChild(header);
 
       const body = el('div', { className: 'slot-body' });
+
+      // Banner che indica l'override attivo
+      if (override) {
+        let bannerText = '';
+        if (override.type === 'day') {
+          const g = DIETA.meta.giorni.find(x => x.id === override.dayId);
+          bannerText = g ? `Stai vedendo il pasto di ${g.nome}` : 'Pasto alternativo';
+        } else if (override.type === 'recipe') {
+          bannerText = `Alternativa: ${override.title || ''}`;
+        }
+        body.appendChild(el('div', { className: 'slot-override-banner' }, '↪ ' + bannerText));
+      }
+
       let displayedVoci = slotData.voci;
       let displayedTitle = null;
       let recipeId = slotData.ricetta || null;
@@ -290,27 +314,25 @@
         body.appendChild(el('button', { className: 'btn btn-small btn-secondary', onclick: () => {
           try { localStorage.removeItem(overrideKey); } catch(e) {}
           renderMenu();
-        }}, 'Ripristina'));
+        }}, 'Ripristina piano base'));
       }
 
-      // Costruisci la tendina
+      // Costruisci la tendina con testi lunghi
       const select = el('select', { className: 'slot-select' });
 
       // Opzione base
-      const optBase = el('option', { value: 'base' }, '— Piano base —');
-      select.appendChild(optBase);
+      select.appendChild(el('option', { value: 'base' }, '— Piano base (originale) —'));
 
-      // Gruppo "Stesso pasto in altri giorni" (solo se ha tipo)
+      // Gruppo "Stesso pasto in altri giorni"
       if (slotData.tipo) {
         const group = el('optgroup', { label: 'Stesso pasto in altri giorni' });
         DIETA.meta.giorni.forEach(g => {
           if (g.id === selectedDayId) return;
           const otherSlot = DIETA.menu[g.id]?.[slot.id];
           if (otherSlot && otherSlot.tipo === slotData.tipo) {
-            const primaVoce = otherSlot.voci[0] || '';
-            const etichettaBreve = `${g.nome}: ${accorcia(primaVoce, 35)}`;
-            const opt = el('option', { value: `day_${g.id}`, title: `${g.nome} — ${primaVoce}` }, etichettaBreve);
-            group.appendChild(opt);
+            const testoCompleto = otherSlot.voci.join(' — ');
+            const etichetta = `${g.nome}: ${accorcia(testoCompleto, 70)}`;
+            group.appendChild(el('option', { value: `day_${g.id}`, title: testoCompleto }, etichetta));
           }
         });
         if (group.children.length > 0) select.appendChild(group);
@@ -320,8 +342,7 @@
       if (slotData.alternative && slotData.alternative.length > 0) {
         const group = el('optgroup', { label: 'Alternative con ricetta' });
         slotData.alternative.forEach(alt => {
-          const opt = el('option', { value: `recipe_${alt.ricetta}`, title: alt.titolo }, accorcia(alt.titolo, 40));
-          group.appendChild(opt);
+          group.appendChild(el('option', { value: `recipe_${alt.ricetta}`, title: alt.titolo }, alt.titolo));
         });
         select.appendChild(group);
       }
@@ -334,30 +355,7 @@
         select.value = 'base';
       }
 
-      // Riquadro che mostra la descrizione completa dell'opzione scelta
-      const dettaglio = el('div', { className: 'slot-override-dettaglio' });
-
-      const aggiornaDettaglio = () => {
-        const val = select.value;
-        dettaglio.textContent = '';
-        if (val === 'base') return;
-
-        if (val.startsWith('day_')) {
-          const dayId = val.substring(4);
-          const g = DIETA.meta.giorni.find(x => x.id === dayId);
-          const otherSlot = DIETA.menu[dayId]?.[slot.id];
-          if (g && otherSlot) {
-            dettaglio.textContent = `${g.nome}: ${otherSlot.voci.join(' — ')}`;
-          }
-        } else if (val.startsWith('recipe_')) {
-          const recipeId = val.substring(7);
-          const alt = slotData.alternative?.find(a => a.ricetta === recipeId);
-          if (alt) {
-            dettaglio.textContent = alt.titolo;
-          }
-        }
-      };
-
+      // Handler cambio
       select.addEventListener('change', (e) => {
         const val = e.target.value;
         if (val === 'base') {
@@ -375,12 +373,9 @@
         renderMenu();
       });
 
-      aggiornaDettaglio();
-
       const footer = el('div', { className: 'slot-footer' },
         el('label', { className: 'slot-select-label' }, 'Cambia con un\'alternativa'),
-        select,
-        dettaglio
+        select
       );
 
       card.appendChild(body);
