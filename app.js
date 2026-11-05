@@ -15,14 +15,12 @@
   const lightboxImg = document.getElementById('lightbox-img');
   const lightboxCaption = document.getElementById('lightbox-caption');
 
-  // --- STATO ---
-  // Uso una variabile separata per il giorno scelto dall'utente.
-  // Se è null, uso il giorno corrente. Altrimenti uso quello scelto.
+  // selectedDayIdUser: null finché l'utente non sceglie un giorno
   let selectedDayIdUser = null;
   let lightboxImages = [];
   let lightboxIndex = 0;
 
-  // --- CACHE OVERRIDE (per il menu) ---
+  // Cache override
   let overridesState = {};
   try {
     const stored = localStorage.getItem('dieta_overrides_state');
@@ -42,7 +40,6 @@
     try { localStorage.setItem('dieta_overrides_state', JSON.stringify(overridesState)); } catch(e) {}
   }
 
-  // --- FUNZIONE PER CREARE ELEMENTI ---
   function el(tag, attrs = {}, ...children) {
     const element = document.createElement(tag);
     for (const [key, value] of Object.entries(attrs)) {
@@ -118,7 +115,6 @@
     }
   }
 
-  // --- ROUTER ---
   function handleRoute() {
     const hash = window.location.hash.slice(1) || '/';
     const parts = hash.split('/').filter(Boolean);
@@ -150,76 +146,6 @@
     }
   }
 
-  // --- FUNZIONI DI SUPPORTO PER IL MENU ---
-  function aggiornaCardMenu(header, body, overrideKey, slotData, select) {
-    const override = getOverride(overrideKey);
-    header.innerHTML = '';
-    body.innerHTML = '';
-    
-    // Header
-    header.appendChild(el('span', { className: 'slot-icon' }, slotData.icona));
-    header.appendChild(el('h3', { className: 'slot-name' }, slotData.nome));
-    if (override) {
-      let badgeText = override.type === 'day' ? 'Modificato' : 'Ricetta';
-      header.appendChild(el('span', { className: 'badge badge-mod' }, badgeText));
-    }
-
-    // Banner override
-    if (override) {
-      let bannerText = '';
-      if (override.type === 'day') {
-        const g = DIETA.meta.giorni.find(x => x.id === override.dayId);
-        bannerText = g ? `Stai vedendo il pasto di ${g.nome}` : 'Pasto alternativo';
-      } else if (override.type === 'recipe') {
-        bannerText = `Alternativa: ${override.title || ''}`;
-      }
-      body.appendChild(el('div', { className: 'slot-override-banner' }, '↪ ' + bannerText));
-    }
-
-    // Contenuto
-    let displayedVoci = slotData.voci;
-    let displayedTitle = null;
-    let recipeId = slotData.ricetta || null;
-    let isRecipeAlternative = false;
-
-    if (override) {
-      if (override.type === 'day') {
-        const otherSlot = DIETA.menu[override.dayId]?.[slotData.slotId];
-        if (otherSlot) {
-          displayedVoci = otherSlot.voci;
-          recipeId = otherSlot.ricetta || null;
-        }
-      } else if (override.type === 'recipe') {
-        displayedTitle = override.title;
-        recipeId = override.recipeId;
-        isRecipeAlternative = true;
-      }
-    }
-
-    if (isRecipeAlternative) {
-      body.appendChild(el('p', { className: 'slot-recipe-title' }, displayedTitle));
-      if (recipeId) {
-        body.appendChild(el('button', { className: 'btn btn-small', onclick: () => openRecipeModal(recipeId) }, 'Apri ricetta'));
-      }
-    } else {
-      const ul = el('ul', { className: 'slot-voci' });
-      displayedVoci.forEach(v => ul.appendChild(el('li', {}, v)));
-      body.appendChild(ul);
-      if (recipeId) {
-        body.appendChild(el('button', { className: 'btn btn-small', onclick: () => openRecipeModal(recipeId) }, 'Ricetta'));
-      }
-    }
-
-    if (override) {
-      body.appendChild(el('button', { className: 'btn btn-small btn-secondary', onclick: () => {
-        setOverride(overrideKey, null);
-        select.value = 'base';
-        aggiornaCardMenu(header, body, overrideKey, slotData, select);
-      }}, 'Ripristina piano base'));
-    }
-  }
-
-  // --- DASHBOARD ---
   function renderDashboard() {
     const now = new Date();
     const h = now.getHours();
@@ -271,10 +197,8 @@
 
     app.append(hero, grid);
   }
-  // --- MENU DEL GIORNO ---
+
   function renderMenu() {
-    // Se l'utente non ha ancora scelto, parti dal giorno di oggi.
-    // Se ha scelto, rispetta la sua scelta (selectedDayIdUser).
     if (!selectedDayIdUser) {
       selectedDayIdUser = getGiornoOggi().id;
     }
@@ -329,9 +253,7 @@
       const slotData = menuDay[slot.id];
       if (!slotData) return;
 
-      // Aggiungo slotId e nome all'oggetto per la funzione di aggiornamento
       const slotInfo = { ...slotData, slotId: slot.id, nome: slot.nome, icona: slot.icona };
-
       const overrideKey = `dieta_menu_${selectedDayId}_${slot.id}`;
       
       const card = el('div', { className: 'slot-card' });
@@ -344,7 +266,6 @@
       const footer = el('div', { className: 'slot-footer' });
       const select = el('select', { className: 'slot-select' });
 
-      // Popolo la select
       select.appendChild(el('option', { value: 'base' }, '— Piano base (originale) —'));
       
       if (slotData.tipo) {
@@ -368,7 +289,71 @@
         select.appendChild(group);
       }
 
-      // Imposto il valore corrente
+      function aggiornaCardMenu() {
+        const override = getOverride(overrideKey);
+        header.innerHTML = '';
+        body.innerHTML = '';
+        
+        header.appendChild(el('span', { className: 'slot-icon' }, slotInfo.icona));
+        header.appendChild(el('h3', { className: 'slot-name' }, slotInfo.nome));
+        if (override) {
+          let badgeText = override.type === 'day' ? 'Modificato' : 'Ricetta';
+          header.appendChild(el('span', { className: 'badge badge-mod' }, badgeText));
+        }
+
+        if (override) {
+          let bannerText = '';
+          if (override.type === 'day') {
+            const g = DIETA.meta.giorni.find(x => x.id === override.dayId);
+            bannerText = g ? `Stai vedendo il pasto di ${g.nome}` : 'Pasto alternativo';
+          } else if (override.type === 'recipe') {
+            bannerText = `Alternativa: ${override.title || ''}`;
+          }
+          body.appendChild(el('div', { className: 'slot-override-banner' }, '↪ ' + bannerText));
+        }
+
+        let displayedVoci = slotInfo.voci;
+        let displayedTitle = null;
+        let recipeId = slotInfo.ricetta || null;
+        let isRecipeAlternative = false;
+
+        if (override) {
+          if (override.type === 'day') {
+            const otherSlot = DIETA.menu[override.dayId]?.[slotInfo.slotId];
+            if (otherSlot) {
+              displayedVoci = otherSlot.voci;
+              recipeId = otherSlot.ricetta || null;
+            }
+          } else if (override.type === 'recipe') {
+            displayedTitle = override.title;
+            recipeId = override.recipeId;
+            isRecipeAlternative = true;
+          }
+        }
+
+        if (isRecipeAlternative) {
+          body.appendChild(el('p', { className: 'slot-recipe-title' }, displayedTitle));
+          if (recipeId) {
+            body.appendChild(el('button', { className: 'btn btn-small', onclick: () => openRecipeModal(recipeId) }, 'Apri ricetta'));
+          }
+        } else {
+          const ul = el('ul', { className: 'slot-voci' });
+          displayedVoci.forEach(v => ul.appendChild(el('li', {}, v)));
+          body.appendChild(ul);
+          if (recipeId) {
+            body.appendChild(el('button', { className: 'btn btn-small', onclick: () => openRecipeModal(recipeId) }, 'Ricetta'));
+          }
+        }
+
+        if (override) {
+          body.appendChild(el('button', { className: 'btn btn-small btn-secondary', onclick: () => {
+            setOverride(overrideKey, null);
+            select.value = 'base';
+            aggiornaCardMenu();
+          }}, 'Ripristina piano base'));
+        }
+      }
+
       const initialOverride = getOverride(overrideKey);
       if (initialOverride) {
         if (initialOverride.type === 'day') select.value = `day_${initialOverride.dayId}`;
@@ -377,7 +362,6 @@
         select.value = 'base';
       }
 
-      // Evento di cambio
       select.addEventListener('change', (e) => {
         const val = e.target.value;
         if (val === 'base') {
@@ -389,12 +373,10 @@
           const alt = slotData.alternative?.find(a => a.ricetta === recipeId);
           if (alt) setOverride(overrideKey, { type: 'recipe', recipeId: alt.ricetta, title: alt.titolo });
         }
-        // Aggiorno solo questa card, non tutta la pagina
-        aggiornaCardMenu(header, body, overrideKey, slotInfo, select);
+        aggiornaCardMenu();
       });
 
-      // Aggiorno la card all'inizio
-      aggiornaCardMenu(header, body, overrideKey, slotInfo, select);
+      aggiornaCardMenu();
 
       footer.appendChild(el('label', { className: 'slot-select-label' }, 'Cambia con un\'alternativa'));
       footer.appendChild(select);
@@ -413,7 +395,6 @@
     app.append(tabs, controls, slotsContainer, scambiBox);
   }
 
-  // --- REGOLE ---
   function renderRegole() {
     const princ = DIETA.principi;
     const princCard = el('div', { className: 'card', style: { marginBottom: '24px' } },
@@ -483,7 +464,6 @@
     app.append(princCard, searchInput, accordion);
   }
 
-  // --- RACCOMANDAZIONI ---
   function renderRaccomandazioni() {
     const searchInput = el('input', { type: 'text', className: 'search-input', placeholder: 'Cerca un consiglio...', oninput: (e) => {
       const q = e.target.value.toLowerCase();
@@ -505,7 +485,6 @@
     app.append(searchInput, list);
   }
 
-  // --- COTTURA ---
   function renderCottura() {
     const tables = el('div', { className: 'cottura-tables' });
     DIETA.pesoCottura.gruppi.forEach(gruppo => {
@@ -557,7 +536,6 @@
     );
   }
 
-  // --- ACQUE ---
   function renderAcque() {
     const grid = el('div', { className: 'acque-grid' },
       ...DIETA.acque.ricette.map(r =>
@@ -587,7 +565,6 @@
     );
   }
 
-  // --- PESARE ---
   function renderPesare() {
     app.append(
       el('div', { style: { marginBottom: '20px' } },
@@ -610,7 +587,6 @@
     );
   }
 
-  // --- STAGIONALITÀ ---
   function renderStagionalita() {
     let currentMonth = new Date().getMonth() + 1;
     
@@ -666,7 +642,6 @@
     );
   }
 
-  // --- PORZIONI ---
   function renderPorzioni() {
     const categorie = [...new Set(DIETA.porzioni.map(p => p.categoria))];
     let activeCat = 'Tutte';
@@ -678,4 +653,190 @@
     
     categorie.forEach(cat => {
       const chip = el('button', { className: 'chip' }, cat);
-      chip.addEventListener('click', () => { activeCat = cat; document.querySelectorAll
+      chip.addEventListener('click', () => { activeCat = cat; document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active')); chip.classList.add('active'); filter(); });
+      filterChips.appendChild(chip);
+    });
+    
+    const grid = el('div', { className: 'porzioni-grid' });
+    DIETA.porzioni.forEach((p, index) => {
+      grid.appendChild(el('div', { className: 'porzione-card card', dataset: { categoria: p.categoria }, onclick: () => openLightbox(DIETA.porzioni, index) },
+        el('img', { src: p.file, alt: p.titolo, loading: 'lazy' }),
+        el('div', { className: 'porzione-info' }, el('h4', {}, p.titolo), el('p', {}, p.didascalia))
+      ));
+    });
+    
+    function filter() {
+      document.querySelectorAll('.porzione-card').forEach(card => {
+        card.style.display = (activeCat === 'Tutte' || card.dataset.categoria === activeCat) ? '' : 'none';
+      });
+    }
+    
+    app.append(filterChips, grid);
+  }
+
+  function renderUnita() {
+    const searchInput = el('input', { type: 'text', className: 'search-input', placeholder: 'Cerca un\'unità di misura...', oninput: (e) => {
+      const q = e.target.value.toLowerCase();
+      document.querySelectorAll('.unita-row').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }});
+    
+    app.append(searchInput, el('div', { className: 'unita-groups' },
+      ...DIETA.unita.gruppi.map(g =>
+        el('div', { className: 'unita-group' },
+          el('h3', {}, g.nome),
+          el('div', { className: 'unita-list' },
+            ...g.voci.map(v =>
+              el('div', { className: 'unita-row' },
+                el('span', { className: 'unita-voce' }, v.voce),
+                el('span', { className: 'unita-valore' }, v.valore)
+              )
+            )
+          )
+        )
+      )
+    ));
+  }
+
+  function renderRicettario() {
+    const categorie = ['Tutte', ...new Set(DIETA.ricettario.map(r => r.categoria))];
+    let activeCat = 'Tutte';
+    let searchQ = '';
+    
+    const searchInput = el('input', { type: 'text', className: 'search-input', placeholder: 'Cerca una ricetta...', oninput: (e) => { searchQ = e.target.value.toLowerCase(); filter(); }});
+    const filterChips = el('div', { className: 'filter-chips' });
+    
+    categorie.forEach(cat => {
+      const chip = el('button', { className: 'chip' + (cat === activeCat ? ' active' : '') }, cat);
+      chip.addEventListener('click', () => { activeCat = cat; document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active')); chip.classList.add('active'); filter(); });
+      filterChips.appendChild(chip);
+    });
+    
+    const grid = el('div', { className: 'ricettario-grid' });
+    DIETA.ricettario.forEach(r => {
+      grid.appendChild(el('div', { className: 'ricetta-card card', dataset: { categoria: r.categoria }, onclick: () => { window.location.hash = `#/ricettario/${r.id}`; } },
+        el('h3', {}, r.titolo),
+        el('span', { className: 'badge' }, r.categoria)
+      ));
+    });
+    
+    function filter() {
+      document.querySelectorAll('.ricetta-card').forEach(card => {
+        const matchCat = activeCat === 'Tutte' || card.dataset.categoria === activeCat;
+        const matchSearch = card.querySelector('h3').textContent.toLowerCase().includes(searchQ);
+        card.style.display = (matchCat && matchSearch) ? '' : 'none';
+      });
+    }
+    
+    app.append(searchInput, filterChips, grid);
+  }
+
+  function renderRicettaDetail(id) {
+    const ricetta = DIETA.ricettario.find(r => r.id === id);
+    if (!ricetta) { app.appendChild(el('p', { className: 'empty' }, 'Ricetta non trovata.')); return; }
+    
+    app.appendChild(el('div', { className: 'ricetta-detail' },
+      el('h2', {}, ricetta.titolo),
+      el('span', { className: 'badge' }, ricetta.categoria),
+      el('h3', {}, 'Ingredienti'),
+      el('ul', { className: 'ingredienti-list' }, ...ricetta.ingredienti.map(i => el('li', {}, i))),
+      el('h3', {}, 'Preparazione'),
+      ...ricetta.preparazione.map(p => el('p', {}, p)),
+      el('button', { className: 'btn', style: { marginTop: '20px' }, onclick: () => window.print() }, 'Stampa ricetta')
+    ));
+  }
+
+  function openRecipeModal(id) {
+    const ricetta = DIETA.ricettario.find(r => r.id === id);
+    if (!ricetta) return;
+    
+    modalContent.innerHTML = '';
+    modalContent.appendChild(el('button', { className: 'modal-close', onclick: closeModal }, '×'));
+    modalContent.appendChild(el('h2', {}, ricetta.titolo));
+    modalContent.appendChild(el('span', { className: 'badge', style: { marginBottom: '16px', display: 'inline-block' } }, ricetta.categoria));
+    modalContent.appendChild(el('h3', {}, 'Ingredienti'));
+    modalContent.appendChild(el('ul', {}, ...ricetta.ingredienti.map(i => el('li', {}, i))));
+    modalContent.appendChild(el('h3', {}, 'Preparazione'));
+    ricetta.preparazione.forEach(p => modalContent.appendChild(el('p', {}, p)));
+    
+    modal.hidden = false;
+    document.body.classList.add('modal-open');
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    document.body.classList.remove('modal-open');
+  }
+
+  function openLightbox(images, index) {
+    lightboxImages = images;
+    lightboxIndex = index;
+    updateLightbox();
+    lightbox.hidden = false;
+    document.body.classList.add('lightbox-open');
+  }
+
+  function updateLightbox() {
+    const img = lightboxImages[lightboxIndex];
+    if (!img) return;
+    lightboxImg.src = img.file;
+    lightboxImg.alt = img.didascalia || '';
+    lightboxCaption.textContent = img.didascalia || '';
+  }
+
+  function closeLightbox() {
+    lightbox.hidden = true;
+    document.body.classList.remove('lightbox-open');
+  }
+
+  window.addEventListener('hashchange', handleRoute);
+  backBtn.addEventListener('click', () => window.history.back());
+
+  function initTheme() {
+    let theme = 'light';
+    try {
+      const saved = localStorage.getItem('dieta_theme');
+      if (saved) theme = saved;
+      else if (window.matchMedia('(prefers-color-scheme: dark)').matches) theme = 'dark';
+    } catch(e) {}
+    
+    document.documentElement.setAttribute('data-theme', theme);
+    themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+    
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      themeToggle.textContent = next === 'dark' ? '☀️' : '🌙';
+      try { localStorage.setItem('dieta_theme', next); } catch(e) {}
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!modal.hidden) closeModal();
+      if (!lightbox.hidden) closeLightbox();
+    }
+    if (!lightbox.hidden) {
+      if (e.key === 'ArrowLeft') { lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length; updateLightbox(); }
+      else if (e.key === 'ArrowRight') { lightboxIndex = (lightboxIndex + 1) % lightboxImages.length; updateLightbox(); }
+    }
+  });
+
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+  lightbox.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
+  lightbox.querySelector('.lightbox-prev').addEventListener('click', () => { lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length; updateLightbox(); });
+  lightbox.querySelector('.lightbox-next').addEventListener('click', () => { lightboxIndex = (lightboxIndex + 1) % lightboxImages.length; updateLightbox(); });
+
+  function init() {
+    initTheme();
+    const nut = DIETA.meta.nutrizionista;
+    footerText.textContent = `Piano alimentare della ${nut.nome}, ${nut.qualifica} — ${nut.sito}. Uso personale: non sostituisce il parere del medico.`;
+    if (!window.location.hash) window.location.hash = '#/';
+    handleRoute();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
