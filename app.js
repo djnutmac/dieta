@@ -4,23 +4,24 @@
   const DIETA = window.DIETA;
   if (!DIETA) { console.error('Dati non trovati.'); return; }
 
+  // Riferimenti DOM (con controlli di sicurezza)
   const app = document.getElementById('app');
   const pageTitle = document.getElementById('page-title');
   const backBtn = document.getElementById('back-btn');
   const themeToggle = document.getElementById('theme-toggle');
   const footerText = document.getElementById('footer-text');
   const modal = document.getElementById('modal');
-  const modalContent = modal.querySelector('.modal-content');
+  const modalContent = modal ? modal.querySelector('.modal-content') : null;
   const lightbox = document.getElementById('lightbox');
   const lightboxImg = document.getElementById('lightbox-img');
   const lightboxCaption = document.getElementById('lightbox-caption');
 
-  // selectedDayIdUser: null finché l'utente non sceglie un giorno
-  let selectedDayIdUser = null;
+  // Stato
+  let selectedDayIdUser = null; // Ricorda il giorno scelto dall'utente
   let lightboxImages = [];
   let lightboxIndex = 0;
 
-  // Cache override
+  // Cache degli override del menu
   let overridesState = {};
   try {
     const stored = localStorage.getItem('dieta_overrides_state');
@@ -40,6 +41,7 @@
     try { localStorage.setItem('dieta_overrides_state', JSON.stringify(overridesState)); } catch(e) {}
   }
 
+  // Funzione per creare elementi DOM
   function el(tag, attrs = {}, ...children) {
     const element = document.createElement(tag);
     for (const [key, value] of Object.entries(attrs)) {
@@ -72,17 +74,20 @@
     return element;
   }
 
+  // Accorcia testi lunghi
   function accorcia(testo, max) {
     if (!testo) return '';
     if (testo.length <= max) return testo;
     return testo.substring(0, max).trim() + '…';
   }
 
+  // Restituisce il giorno corrente
   function getGiornoOggi() {
     const jsDay = new Date().getDay();
     return DIETA.meta.giorni.find(g => g.js === jsDay) || DIETA.meta.giorni[0];
   }
 
+  // Restituisce il prossimo pasto in base all'ora
   function getNextSlotId() {
     const h = new Date().getHours();
     if (h < 10) return 'colazione';
@@ -94,6 +99,7 @@
   }
 
   function updateTitleForPage(page, param) {
+    if (!pageTitle) return;
     const titles = {
       dashboard: DIETA.meta.titolo,
       menu: 'Menu del giorno',
@@ -115,13 +121,15 @@
     }
   }
 
+  // Router principale
   function handleRoute() {
+    if (!app) return;
     const hash = window.location.hash.slice(1) || '/';
     const parts = hash.split('/').filter(Boolean);
     const page = parts[0] || 'dashboard';
     const param = parts[1];
 
-    backBtn.hidden = page === 'dashboard';
+    if (backBtn) backBtn.hidden = page === 'dashboard';
     updateTitleForPage(page, param);
 
     app.innerHTML = '';
@@ -146,6 +154,7 @@
     }
   }
 
+  // --- DASHBOARD ---
   function renderDashboard() {
     const now = new Date();
     const h = now.getHours();
@@ -164,8 +173,8 @@
       el('p', { className: 'hero-sub' }, `oggi è ${giornoOggi.nome}`),
       el('div', { className: 'next-meal-card' },
         el('div', { className: 'next-meal-header' },
-          el('span', { className: 'next-meal-icon' }, slotInfo?.icona || '🍽️'),
-          el('span', { className: 'next-meal-label' }, 'Prossimo pasto: ' + (slotInfo?.nome || '')),
+          el('span', { className: 'next-meal-icon' }, slotInfo ? slotInfo.icona : '🍽️'),
+          el('span', { className: 'next-meal-label' }, 'Prossimo pasto: ' + (slotInfo ? slotInfo.nome : '')),
         ),
         el('ul', { className: 'next-meal-list' }, ...vociPasto.map(v => el('li', {}, v))),
         el('a', { href: '#/menu', className: 'btn btn-small' }, 'Vai al menu')
@@ -198,6 +207,7 @@
     app.append(hero, grid);
   }
 
+  // --- MENU DEL GIORNO ---
   function renderMenu() {
     if (!selectedDayIdUser) {
       selectedDayIdUser = getGiornoOggi().id;
@@ -395,6 +405,7 @@
     app.append(tabs, controls, slotsContainer, scambiBox);
   }
 
+  // --- REGOLE ---
   function renderRegole() {
     const princ = DIETA.principi;
     const princCard = el('div', { className: 'card', style: { marginBottom: '24px' } },
@@ -464,6 +475,7 @@
     app.append(princCard, searchInput, accordion);
   }
 
+  // --- RACCOMANDAZIONI ---
   function renderRaccomandazioni() {
     const searchInput = el('input', { type: 'text', className: 'search-input', placeholder: 'Cerca un consiglio...', oninput: (e) => {
       const q = e.target.value.toLowerCase();
@@ -485,6 +497,7 @@
     app.append(searchInput, list);
   }
 
+  // --- COTTURA ---
   function renderCottura() {
     const tables = el('div', { className: 'cottura-tables' });
     DIETA.pesoCottura.gruppi.forEach(gruppo => {
@@ -536,6 +549,7 @@
     );
   }
 
+  // --- ACQUE ---
   function renderAcque() {
     const grid = el('div', { className: 'acque-grid' },
       ...DIETA.acque.ricette.map(r =>
@@ -565,6 +579,7 @@
     );
   }
 
+  // --- PESARE ---
   function renderPesare() {
     app.append(
       el('div', { style: { marginBottom: '20px' } },
@@ -587,6 +602,7 @@
     );
   }
 
+  // --- STAGIONALITÀ ---
   function renderStagionalita() {
     let currentMonth = new Date().getMonth() + 1;
     
@@ -642,6 +658,7 @@
     );
   }
 
+  // --- PORZIONI ---
   function renderPorzioni() {
     const categorie = [...new Set(DIETA.porzioni.map(p => p.categoria))];
     let activeCat = 'Tutte';
@@ -674,6 +691,7 @@
     app.append(filterChips, grid);
   }
 
+  // --- UNITÀ ---
   function renderUnita() {
     const searchInput = el('input', { type: 'text', className: 'search-input', placeholder: 'Cerca un\'unità di misura...', oninput: (e) => {
       const q = e.target.value.toLowerCase();
@@ -699,6 +717,7 @@
     ));
   }
 
+  // --- RICETTARIO ---
   function renderRicettario() {
     const categorie = ['Tutte', ...new Set(DIETA.ricettario.map(r => r.categoria))];
     let activeCat = 'Tutte';
@@ -747,7 +766,9 @@
     ));
   }
 
+  // --- MODALE RICETTA ---
   function openRecipeModal(id) {
+    if (!modal || !modalContent) return;
     const ricetta = DIETA.ricettario.find(r => r.id === id);
     if (!ricetta) return;
     
@@ -765,11 +786,14 @@
   }
 
   function closeModal() {
+    if (!modal) return;
     modal.hidden = true;
     document.body.classList.remove('modal-open');
   }
 
+  // --- LIGHTBOX ---
   function openLightbox(images, index) {
+    if (!lightbox) return;
     lightboxImages = images;
     lightboxIndex = index;
     updateLightbox();
@@ -778,22 +802,26 @@
   }
 
   function updateLightbox() {
+    if (!lightboxImg) return;
     const img = lightboxImages[lightboxIndex];
     if (!img) return;
     lightboxImg.src = img.file;
     lightboxImg.alt = img.didascalia || '';
-    lightboxCaption.textContent = img.didascalia || '';
+    if (lightboxCaption) lightboxCaption.textContent = img.didascalia || '';
   }
 
   function closeLightbox() {
+    if (!lightbox) return;
     lightbox.hidden = true;
     document.body.classList.remove('lightbox-open');
   }
 
+  // --- EVENT LISTENERS GLOBALI ---
   window.addEventListener('hashchange', handleRoute);
-  backBtn.addEventListener('click', () => window.history.back());
+  if (backBtn) backBtn.addEventListener('click', () => window.history.back());
 
   function initTheme() {
+    if (!themeToggle) return;
     let theme = 'light';
     try {
       const saved = localStorage.getItem('dieta_theme');
@@ -815,25 +843,34 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if (!modal.hidden) closeModal();
-      if (!lightbox.hidden) closeLightbox();
+      if (modal && !modal.hidden) closeModal();
+      if (lightbox && !lightbox.hidden) closeLightbox();
     }
-    if (!lightbox.hidden) {
+    if (lightbox && !lightbox.hidden) {
       if (e.key === 'ArrowLeft') { lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length; updateLightbox(); }
       else if (e.key === 'ArrowRight') { lightboxIndex = (lightboxIndex + 1) % lightboxImages.length; updateLightbox(); }
     }
   });
 
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
-  lightbox.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
-  lightbox.querySelector('.lightbox-prev').addEventListener('click', () => { lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length; updateLightbox(); });
-  lightbox.querySelector('.lightbox-next').addEventListener('click', () => { lightboxIndex = (lightboxIndex + 1) % lightboxImages.length; updateLightbox(); });
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  if (lightbox) lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+  
+  if (lightbox) {
+    const closeBtn = lightbox.querySelector('.lightbox-close');
+    const prevBtn = lightbox.querySelector('.lightbox-prev');
+    const nextBtn = lightbox.querySelector('.lightbox-next');
+    if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
+    if (prevBtn) prevBtn.addEventListener('click', () => { lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length; updateLightbox(); });
+    if (nextBtn) nextBtn.addEventListener('click', () => { lightboxIndex = (lightboxIndex + 1) % lightboxImages.length; updateLightbox(); });
+  }
 
+  // --- INIZIALIZZAZIONE ---
   function init() {
     initTheme();
     const nut = DIETA.meta.nutrizionista;
-    footerText.textContent = `Piano alimentare della ${nut.nome}, ${nut.qualifica} — ${nut.sito}. Uso personale: non sostituisce il parere del medico.`;
+    if (footerText) {
+      footerText.textContent = `Piano alimentare della ${nut.nome}, ${nut.qualifica} — ${nut.sito}. Uso personale: non sostituisce il parere del medico.`;
+    }
     if (!window.location.hash) window.location.hash = '#/';
     handleRoute();
   }
