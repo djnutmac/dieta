@@ -4,7 +4,6 @@
   const DIETA = window.DIETA;
   if (!DIETA) { console.error('Dati non trovati.'); return; }
 
-  // Riferimenti DOM (con controlli di sicurezza)
   const app = document.getElementById('app');
   const pageTitle = document.getElementById('page-title');
   const backBtn = document.getElementById('back-btn');
@@ -16,12 +15,12 @@
   const lightboxImg = document.getElementById('lightbox-img');
   const lightboxCaption = document.getElementById('lightbox-caption');
 
-  // Stato
-  let selectedDayIdUser = null; // Ricorda il giorno scelto dall'utente
+  // Variabile che ricorda il giorno scelto. Inizialmente null (useremo oggi).
+  let selectedDayIdUser = null;
   let lightboxImages = [];
   let lightboxIndex = 0;
 
-  // Cache degli override del menu
+  // Cache degli override (le modifiche salvate dal menu)
   let overridesState = {};
   try {
     const stored = localStorage.getItem('dieta_overrides_state');
@@ -74,20 +73,17 @@
     return element;
   }
 
-  // Accorcia testi lunghi
   function accorcia(testo, max) {
     if (!testo) return '';
     if (testo.length <= max) return testo;
     return testo.substring(0, max).trim() + '…';
   }
 
-  // Restituisce il giorno corrente
   function getGiornoOggi() {
     const jsDay = new Date().getDay();
     return DIETA.meta.giorni.find(g => g.js === jsDay) || DIETA.meta.giorni[0];
   }
 
-  // Restituisce il prossimo pasto in base all'ora
   function getNextSlotId() {
     const h = new Date().getHours();
     if (h < 10) return 'colazione';
@@ -121,7 +117,6 @@
     }
   }
 
-  // Router principale
   function handleRoute() {
     if (!app) return;
     const hash = window.location.hash.slice(1) || '/';
@@ -209,16 +204,15 @@
 
   // --- MENU DEL GIORNO ---
   function renderMenu() {
-    if (!selectedDayIdUser) {
-      selectedDayIdUser = getGiornoOggi().id;
-    }
-    const selectedDayId = selectedDayIdUser;
+    // Se selectedDayIdUser è null, usa il giorno corrente, altrimenti usa la scelta dell'utente.
+    const selectedDayId = selectedDayIdUser || getGiornoOggi().id;
 
     const tabs = el('div', { className: 'day-tabs' },
       ...DIETA.meta.giorni.map(g =>
         el('button', {
           className: 'day-tab' + (g.id === selectedDayId ? ' active' : ''),
           onclick: () => {
+            // Imposta il giorno scelto e ridisegna il menu
             selectedDayIdUser = g.id;
             renderMenu();
           }
