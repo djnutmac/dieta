@@ -15,12 +15,12 @@
   const lightboxImg = document.getElementById('lightbox-img');
   const lightboxCaption = document.getElementById('lightbox-caption');
 
-  // Variabile che ricorda il giorno scelto. Inizialmente null (useremo oggi).
+  // Variabile che ricorda il giorno scelto. null = usa oggi.
   let selectedDayIdUser = null;
   let lightboxImages = [];
   let lightboxIndex = 0;
 
-  // Cache degli override (le modifiche salvate dal menu)
+  // Cache override
   let overridesState = {};
   try {
     const stored = localStorage.getItem('dieta_overrides_state');
@@ -40,7 +40,6 @@
     try { localStorage.setItem('dieta_overrides_state', JSON.stringify(overridesState)); } catch(e) {}
   }
 
-  // Funzione per creare elementi DOM
   function el(tag, attrs = {}, ...children) {
     const element = document.createElement(tag);
     for (const [key, value] of Object.entries(attrs)) {
@@ -149,7 +148,6 @@
     }
   }
 
-  // --- DASHBOARD ---
   function renderDashboard() {
     const now = new Date();
     const h = now.getHours();
@@ -202,192 +200,221 @@
     app.append(hero, grid);
   }
 
-  // --- MENU DEL GIORNO ---
   function renderMenu() {
-    // Se selectedDayIdUser è null, usa il giorno corrente, altrimenti usa la scelta dell'utente.
+    // Determina il giorno selezionato
     const selectedDayId = selectedDayIdUser || getGiornoOggi().id;
 
-    const tabs = el('div', { className: 'day-tabs' },
-      ...DIETA.meta.giorni.map(g =>
-        el('button', {
-          className: 'day-tab' + (g.id === selectedDayId ? ' active' : ''),
-          onclick: () => {
-            // Imposta il giorno scelto e ridisegna il menu
-            selectedDayIdUser = g.id;
-            renderMenu();
-          }
-        },
-          g.breve,
-          g.id === getGiornoOggi().id ? el('span', { className: 'badge badge-oggi' }, 'Oggi') : null
-        )
-      )
-    );
+    // --- TABS ---
+    const tabs = el('div', { className: 'day-tabs' });
+    DIETA.meta.giorni.forEach(g => {
+      const isActive = g.id === selectedDayId;
+      const tab = el('button', {
+        className: 'day-tab' + (isActive ? ' active' : '')
+      },
+        g.breve,
+        g.id === getGiornoOggi().id ? el('span', { className: 'badge badge-oggi' }, 'Oggi') : null
+      );
+      tab.addEventListener('click', (e) => {
+        e.preventDefault();
+        selectedDayIdUser = g.id;
+        // Forza il ridisegno chiamando direttamente la funzione
+        renderMenuContent();
+      });
+      tabs.appendChild(tab);
+    });
 
-    const invertKey = `dieta_invert_${selectedDayId}`;
-    let isInverted = false;
-    try { isInverted = localStorage.getItem(invertKey) === 'true'; } catch(e) {}
+    // Contenitore per i controlli e gli slot
+    const contentContainer = el('div', { className: 'menu-content-container' });
 
-    const invertToggle = el('label', { className: 'toggle' },
-      el('input', { type: 'checkbox', checked: isInverted, onchange: (e) => {
-        try { localStorage.setItem(invertKey, e.target.checked); } catch(e) {}
-        renderMenu();
-      }}),
-      el('span', { className: 'toggle-slider' }),
-      'Inverti pranzo e cena'
-    );
+    // Funzione che aggiorna SOLO il contenuto (controlli + slot)
+    function renderMenuContent() {
+      // Svuota il contenitore
+      contentContainer.innerHTML = '';
 
-    const resetAllBtn = el('button', { className: 'btn btn-secondary', onclick: () => {
-      clearOverridesForDay(selectedDayId);
-      renderMenu();
-    }}, 'Ripristina tutto il giorno');
+      const currentDayId = selectedDayIdUser || getGiornoOggi().id;
 
-    const controls = el('div', { className: 'menu-controls' }, invertToggle, resetAllBtn);
-
-    const slotsContainer = el('div', { className: 'slots-container' });
-
-    let menuDay = DIETA.menu[selectedDayId];
-    if (isInverted) {
-      menuDay = { ...menuDay };
-      const temp = menuDay.pranzo;
-      menuDay.pranzo = menuDay.cena;
-      menuDay.cena = temp;
-    }
-
-    DIETA.meta.slot.forEach(slot => {
-      const slotData = menuDay[slot.id];
-      if (!slotData) return;
-
-      const slotInfo = { ...slotData, slotId: slot.id, nome: slot.nome, icona: slot.icona };
-      const overrideKey = `dieta_menu_${selectedDayId}_${slot.id}`;
-      
-      const card = el('div', { className: 'slot-card' });
-      const header = el('div', { className: 'slot-header' });
-      card.appendChild(header);
-
-      const body = el('div', { className: 'slot-body' });
-      card.appendChild(body);
-
-      const footer = el('div', { className: 'slot-footer' });
-      const select = el('select', { className: 'slot-select' });
-
-      select.appendChild(el('option', { value: 'base' }, '— Piano base (originale) —'));
-      
-      if (slotData.tipo) {
-        const group = el('optgroup', { label: 'Stesso pasto in altri giorni' });
-        DIETA.meta.giorni.forEach(g => {
-          if (g.id === selectedDayId) return;
-          const otherSlot = DIETA.menu[g.id]?.[slot.id];
-          if (otherSlot && otherSlot.tipo === slotData.tipo) {
-            const testoCompleto = otherSlot.voci.join(' — ');
-            group.appendChild(el('option', { value: `day_${g.id}`, title: testoCompleto }, `${g.nome}: ${accorcia(testoCompleto, 70)}`));
-          }
-        });
-        if (group.children.length > 0) select.appendChild(group);
-      }
-
-      if (slotData.alternative && slotData.alternative.length > 0) {
-        const group = el('optgroup', { label: 'Alternative con ricetta' });
-        slotData.alternative.forEach(alt => {
-          group.appendChild(el('option', { value: `recipe_${alt.ricetta}`, title: alt.titolo }, alt.titolo));
-        });
-        select.appendChild(group);
-      }
-
-      function aggiornaCardMenu() {
-        const override = getOverride(overrideKey);
-        header.innerHTML = '';
-        body.innerHTML = '';
-        
-        header.appendChild(el('span', { className: 'slot-icon' }, slotInfo.icona));
-        header.appendChild(el('h3', { className: 'slot-name' }, slotInfo.nome));
-        if (override) {
-          let badgeText = override.type === 'day' ? 'Modificato' : 'Ricetta';
-          header.appendChild(el('span', { className: 'badge badge-mod' }, badgeText));
+      // Aggiorna le tab
+      const allTabs = tabs.querySelectorAll('.day-tab');
+      DIETA.meta.giorni.forEach((g, index) => {
+        if (allTabs[index]) {
+          allTabs[index].className = 'day-tab' + (g.id === currentDayId ? ' active' : '');
         }
-
-        if (override) {
-          let bannerText = '';
-          if (override.type === 'day') {
-            const g = DIETA.meta.giorni.find(x => x.id === override.dayId);
-            bannerText = g ? `Stai vedendo il pasto di ${g.nome}` : 'Pasto alternativo';
-          } else if (override.type === 'recipe') {
-            bannerText = `Alternativa: ${override.title || ''}`;
-          }
-          body.appendChild(el('div', { className: 'slot-override-banner' }, '↪ ' + bannerText));
-        }
-
-        let displayedVoci = slotInfo.voci;
-        let displayedTitle = null;
-        let recipeId = slotInfo.ricetta || null;
-        let isRecipeAlternative = false;
-
-        if (override) {
-          if (override.type === 'day') {
-            const otherSlot = DIETA.menu[override.dayId]?.[slotInfo.slotId];
-            if (otherSlot) {
-              displayedVoci = otherSlot.voci;
-              recipeId = otherSlot.ricetta || null;
-            }
-          } else if (override.type === 'recipe') {
-            displayedTitle = override.title;
-            recipeId = override.recipeId;
-            isRecipeAlternative = true;
-          }
-        }
-
-        if (isRecipeAlternative) {
-          body.appendChild(el('p', { className: 'slot-recipe-title' }, displayedTitle));
-          if (recipeId) {
-            body.appendChild(el('button', { className: 'btn btn-small', onclick: () => openRecipeModal(recipeId) }, 'Apri ricetta'));
-          }
-        } else {
-          const ul = el('ul', { className: 'slot-voci' });
-          displayedVoci.forEach(v => ul.appendChild(el('li', {}, v)));
-          body.appendChild(ul);
-          if (recipeId) {
-            body.appendChild(el('button', { className: 'btn btn-small', onclick: () => openRecipeModal(recipeId) }, 'Ricetta'));
-          }
-        }
-
-        if (override) {
-          body.appendChild(el('button', { className: 'btn btn-small btn-secondary', onclick: () => {
-            setOverride(overrideKey, null);
-            select.value = 'base';
-            aggiornaCardMenu();
-          }}, 'Ripristina piano base'));
-        }
-      }
-
-      const initialOverride = getOverride(overrideKey);
-      if (initialOverride) {
-        if (initialOverride.type === 'day') select.value = `day_${initialOverride.dayId}`;
-        else if (initialOverride.type === 'recipe') select.value = `recipe_${initialOverride.recipeId}`;
-      } else {
-        select.value = 'base';
-      }
-
-      select.addEventListener('change', (e) => {
-        const val = e.target.value;
-        if (val === 'base') {
-          setOverride(overrideKey, null);
-        } else if (val.startsWith('day_')) {
-          setOverride(overrideKey, { type: 'day', dayId: val.substring(4) });
-        } else if (val.startsWith('recipe_')) {
-          const recipeId = val.substring(7);
-          const alt = slotData.alternative?.find(a => a.ricetta === recipeId);
-          if (alt) setOverride(overrideKey, { type: 'recipe', recipeId: alt.ricetta, title: alt.titolo });
-        }
-        aggiornaCardMenu();
       });
 
-      aggiornaCardMenu();
+      // Inverti toggle
+      const invertKey = `dieta_invert_${currentDayId}`;
+      let isInverted = false;
+      try { isInverted = localStorage.getItem(invertKey) === 'true'; } catch(e) {}
 
-      footer.appendChild(el('label', { className: 'slot-select-label' }, 'Cambia con un\'alternativa'));
-      footer.appendChild(select);
-      card.appendChild(footer);
-      
-      slotsContainer.appendChild(card);
-    });
+      const invertToggle = el('label', { className: 'toggle' },
+        el('input', { type: 'checkbox', checked: isInverted, onchange: (e) => {
+          try { localStorage.setItem(invertKey, e.target.checked); } catch(e) {}
+          renderMenuContent();
+        }}),
+        el('span', { className: 'toggle-slider' }),
+        'Inverti pranzo e cena'
+      );
+
+      const resetAllBtn = el('button', { className: 'btn btn-secondary', onclick: () => {
+        clearOverridesForDay(currentDayId);
+        renderMenuContent();
+      }}, 'Ripristina tutto il giorno');
+
+      const controls = el('div', { className: 'menu-controls' }, invertToggle, resetAllBtn);
+
+      // Slot container
+      const slotsContainer = el('div', { className: 'slots-container' });
+
+      let menuDay = DIETA.menu[currentDayId];
+      if (isInverted) {
+        menuDay = { ...menuDay };
+        const temp = menuDay.pranzo;
+        menuDay.pranzo = menuDay.cena;
+        menuDay.cena = temp;
+      }
+
+      DIETA.meta.slot.forEach(slot => {
+        const slotData = menuDay[slot.id];
+        if (!slotData) return;
+
+        const slotInfo = { ...slotData, slotId: slot.id, nome: slot.nome, icona: slot.icona };
+        const overrideKey = `dieta_menu_${currentDayId}_${slot.id}`;
+        
+        const card = el('div', { className: 'slot-card' });
+        const header = el('div', { className: 'slot-header' });
+        card.appendChild(header);
+
+        const body = el('div', { className: 'slot-body' });
+        card.appendChild(body);
+
+        const footer = el('div', { className: 'slot-footer' });
+        const select = el('select', { className: 'slot-select' });
+
+        select.appendChild(el('option', { value: 'base' }, '— Piano base (originale) —'));
+        
+        if (slotData.tipo) {
+          const group = el('optgroup', { label: 'Stesso pasto in altri giorni' });
+          DIETA.meta.giorni.forEach(g => {
+            if (g.id === currentDayId) return;
+            const otherSlot = DIETA.menu[g.id]?.[slot.id];
+            if (otherSlot && otherSlot.tipo === slotData.tipo) {
+              const testoCompleto = otherSlot.voci.join(' — ');
+              group.appendChild(el('option', { value: `day_${g.id}`, title: testoCompleto }, `${g.nome}: ${accorcia(testoCompleto, 70)}`));
+            }
+          });
+          if (group.children.length > 0) select.appendChild(group);
+        }
+
+        if (slotData.alternative && slotData.alternative.length > 0) {
+          const group = el('optgroup', { label: 'Alternative con ricetta' });
+          slotData.alternative.forEach(alt => {
+            group.appendChild(el('option', { value: `recipe_${alt.ricetta}`, title: alt.titolo }, alt.titolo));
+          });
+          select.appendChild(group);
+        }
+
+        function aggiornaCardMenu() {
+          const override = getOverride(overrideKey);
+          header.innerHTML = '';
+          body.innerHTML = '';
+          
+          header.appendChild(el('span', { className: 'slot-icon' }, slotInfo.icona));
+          header.appendChild(el('h3', { className: 'slot-name' }, slotInfo.nome));
+          if (override) {
+            let badgeText = override.type === 'day' ? 'Modificato' : 'Ricetta';
+            header.appendChild(el('span', { className: 'badge badge-mod' }, badgeText));
+          }
+
+          if (override) {
+            let bannerText = '';
+            if (override.type === 'day') {
+              const g = DIETA.meta.giorni.find(x => x.id === override.dayId);
+              bannerText = g ? `Stai vedendo il pasto di ${g.nome}` : 'Pasto alternativo';
+            } else if (override.type === 'recipe') {
+              bannerText = `Alternativa: ${override.title || ''}`;
+            }
+            body.appendChild(el('div', { className: 'slot-override-banner' }, '↪ ' + bannerText));
+          }
+
+          let displayedVoci = slotInfo.voci;
+          let displayedTitle = null;
+          let recipeId = slotInfo.ricetta || null;
+          let isRecipeAlternative = false;
+
+          if (override) {
+            if (override.type === 'day') {
+              const otherSlot = DIETA.menu[override.dayId]?.[slotInfo.slotId];
+              if (otherSlot) {
+                displayedVoci = otherSlot.voci;
+                recipeId = otherSlot.ricetta || null;
+              }
+            } else if (override.type === 'recipe') {
+              displayedTitle = override.title;
+              recipeId = override.recipeId;
+              isRecipeAlternative = true;
+            }
+          }
+
+          if (isRecipeAlternative) {
+            body.appendChild(el('p', { className: 'slot-recipe-title' }, displayedTitle));
+            if (recipeId) {
+              body.appendChild(el('button', { className: 'btn btn-small', onclick: () => openRecipeModal(recipeId) }, 'Apri ricetta'));
+            }
+          } else {
+            const ul = el('ul', { className: 'slot-voci' });
+            displayedVoci.forEach(v => ul.appendChild(el('li', {}, v)));
+            body.appendChild(ul);
+            if (recipeId) {
+              body.appendChild(el('button', { className: 'btn btn-small', onclick: () => openRecipeModal(recipeId) }, 'Ricetta'));
+            }
+          }
+
+          if (override) {
+            body.appendChild(el('button', { className: 'btn btn-small btn-secondary', onclick: () => {
+              setOverride(overrideKey, null);
+              select.value = 'base';
+              aggiornaCardMenu();
+            }}, 'Ripristina piano base'));
+          }
+        }
+
+        const initialOverride = getOverride(overrideKey);
+        if (initialOverride) {
+          if (initialOverride.type === 'day') select.value = `day_${initialOverride.dayId}`;
+          else if (initialOverride.type === 'recipe') select.value = `recipe_${initialOverride.recipeId}`;
+        } else {
+          select.value = 'base';
+        }
+
+        select.addEventListener('change', (e) => {
+          const val = e.target.value;
+          if (val === 'base') {
+            setOverride(overrideKey, null);
+          } else if (val.startsWith('day_')) {
+            setOverride(overrideKey, { type: 'day', dayId: val.substring(4) });
+          } else if (val.startsWith('recipe_')) {
+            const recipeId = val.substring(7);
+            const alt = slotData.alternative?.find(a => a.ricetta === recipeId);
+            if (alt) setOverride(overrideKey, { type: 'recipe', recipeId: alt.ricetta, title: alt.titolo });
+          }
+          aggiornaCardMenu();
+        });
+
+        aggiornaCardMenu();
+
+        footer.appendChild(el('label', { className: 'slot-select-label' }, 'Cambia con un\'alternativa'));
+        footer.appendChild(select);
+        card.appendChild(footer);
+        
+        slotsContainer.appendChild(card);
+      });
+
+      contentContainer.appendChild(controls);
+      contentContainer.appendChild(slotsContainer);
+    }
+
+    // Avvia il rendering iniziale del contenuto
+    renderMenuContent();
 
     const scambiBox = el('details', { className: 'scambi-box' },
       el('summary', {}, 'Come funzionano gli scambi'),
@@ -396,10 +423,9 @@
       )
     );
 
-    app.append(tabs, controls, slotsContainer, scambiBox);
+    app.append(tabs, contentContainer, scambiBox);
   }
 
-  // --- REGOLE ---
   function renderRegole() {
     const princ = DIETA.principi;
     const princCard = el('div', { className: 'card', style: { marginBottom: '24px' } },
@@ -469,7 +495,6 @@
     app.append(princCard, searchInput, accordion);
   }
 
-  // --- RACCOMANDAZIONI ---
   function renderRaccomandazioni() {
     const searchInput = el('input', { type: 'text', className: 'search-input', placeholder: 'Cerca un consiglio...', oninput: (e) => {
       const q = e.target.value.toLowerCase();
@@ -491,7 +516,6 @@
     app.append(searchInput, list);
   }
 
-  // --- COTTURA ---
   function renderCottura() {
     const tables = el('div', { className: 'cottura-tables' });
     DIETA.pesoCottura.gruppi.forEach(gruppo => {
@@ -543,7 +567,6 @@
     );
   }
 
-  // --- ACQUE ---
   function renderAcque() {
     const grid = el('div', { className: 'acque-grid' },
       ...DIETA.acque.ricette.map(r =>
@@ -573,7 +596,6 @@
     );
   }
 
-  // --- PESARE ---
   function renderPesare() {
     app.append(
       el('div', { style: { marginBottom: '20px' } },
@@ -596,7 +618,6 @@
     );
   }
 
-  // --- STAGIONALITÀ ---
   function renderStagionalita() {
     let currentMonth = new Date().getMonth() + 1;
     
@@ -652,7 +673,6 @@
     );
   }
 
-  // --- PORZIONI ---
   function renderPorzioni() {
     const categorie = [...new Set(DIETA.porzioni.map(p => p.categoria))];
     let activeCat = 'Tutte';
@@ -685,7 +705,6 @@
     app.append(filterChips, grid);
   }
 
-  // --- UNITÀ ---
   function renderUnita() {
     const searchInput = el('input', { type: 'text', className: 'search-input', placeholder: 'Cerca un\'unità di misura...', oninput: (e) => {
       const q = e.target.value.toLowerCase();
@@ -711,7 +730,6 @@
     ));
   }
 
-  // --- RICETTARIO ---
   function renderRicettario() {
     const categorie = ['Tutte', ...new Set(DIETA.ricettario.map(r => r.categoria))];
     let activeCat = 'Tutte';
@@ -760,7 +778,6 @@
     ));
   }
 
-  // --- MODALE RICETTA ---
   function openRecipeModal(id) {
     if (!modal || !modalContent) return;
     const ricetta = DIETA.ricettario.find(r => r.id === id);
@@ -785,7 +802,6 @@
     document.body.classList.remove('modal-open');
   }
 
-  // --- LIGHTBOX ---
   function openLightbox(images, index) {
     if (!lightbox) return;
     lightboxImages = images;
@@ -810,7 +826,6 @@
     document.body.classList.remove('lightbox-open');
   }
 
-  // --- EVENT LISTENERS GLOBALI ---
   window.addEventListener('hashchange', handleRoute);
   if (backBtn) backBtn.addEventListener('click', () => window.history.back());
 
@@ -858,7 +873,6 @@
     if (nextBtn) nextBtn.addEventListener('click', () => { lightboxIndex = (lightboxIndex + 1) % lightboxImages.length; updateLightbox(); });
   }
 
-  // --- INIZIALIZZAZIONE ---
   function init() {
     initTheme();
     const nut = DIETA.meta.nutrizionista;
